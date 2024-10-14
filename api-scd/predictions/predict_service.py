@@ -25,8 +25,3 @@ def model_predict(img_path):
     )
     return prediction, img
 
-pach = 'logo.png'
-
-pred,img = model_predict(pach)
-
-print(pred)
