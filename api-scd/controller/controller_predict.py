@@ -4,21 +4,33 @@ from PIL import Image
 import io
 import numpy as np
 import service.predict as predict_service
-import controller.dto.metadados_dto as metadados_dto
+from controller.dto.metadados_dto import MetaDadosDTO
 
 router = APIRouter(prefix="/predict")
 
-@router.post("")
-async def predict(file: UploadFile = File(...), dto: metadados_dto.MetaDadosDTO = Form(...)):
-    if not file.content_type.startswith('image/'):
-        raise HTTPException(status_code=400, detail="File provided is not an image")
+@router.post("/")
+async def predict(
+    file: UploadFile = File(...),
+    idade: int = Form(...),
+    sexo: str = Form(...),
+    localizacao: str = Form(...)
+):
+    dto = MetaDadosDTO(
+        idade=idade,
+        sexo=sexo,
+        localizacao=localizacao
+    )
+
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="O arquivo enviado não é uma imagem válida.")
     
     try:
         contents = await file.read()
         image = Image.open(io.BytesIO(contents)).convert("RGB")
         img_array = np.array(image)
-        
-        content = await predict_service.diagnostic(img_array)
-        return JSONResponse(content)
+
+        result = await predict_service.diagnostic(img_array, dto)
+        return JSONResponse(result)
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Erro ao processar a imagem: {str(e)}")
