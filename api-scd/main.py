@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
-from controller.predict_controller import router as router_predict
+from controller.controller_predict import router as routes_predict
+
 app = FastAPI()
 
 app.add_middleware(
@@ -12,8 +13,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(router_predict)
+app.include_router(routes_predict)
 
 if __name__ == "__main__":
-    
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8081)
