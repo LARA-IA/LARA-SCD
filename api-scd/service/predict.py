@@ -29,4 +29,7 @@ async def diagnostic(img_array, dto: MetaDadosDTO):
         return {"predictions": [], "error": str(e)}
     
 async def mult_benigno():
-     return
+     return True
+
+async def mult_maligno():
+     return True
