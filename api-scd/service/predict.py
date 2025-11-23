@@ -19,7 +19,7 @@ async def diagnostic(img_array, dto: MetaDadosDTO):
         predictions = {}
 
         if(dto):
-                return {"predictions": dto.idade}
+            return {"predictions": dto.idade}
 
         else:
             return {"predictions": dto.idade}
