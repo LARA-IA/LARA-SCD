@@ -15,12 +15,13 @@ public abstract class User {
 
     public User(){}
 
-    public User(String nome, String cpf, String email, String password, AcessLevel accessLevel) {
+    public User(String nome, String cpf, String email, String password, AcessLevel accessLevel, boolean activated) {
         this.email = email;
         this.password = password;
         this.nome = nome;
         this.cpf = cpf;
         this.accessLevel = accessLevel;
+        this.activated = activated;
     }
 
     public UUID getId() {
@@ -43,6 +44,16 @@ public abstract class User {
     @Column(nullable = false)
     private String password;
 
+    @Column(nullable = false)
+    private boolean activated;
+
     @Enumerated(EnumType.STRING)
     private AcessLevel accessLevel;
+
+    public boolean isActivated() {
+        return activated;
+    }
+    public void setActivated(boolean activated) {
+        this.activated = activated;
+    }
 }

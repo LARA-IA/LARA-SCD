@@ -1,15 +1,8 @@
 package com.lara.scd.patient.domain.model;
 
-import com.lara.scd.doctor.domain.model.Doctor;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
-
+import jakarta.persistence.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -17,50 +10,20 @@ import java.util.UUID;
 public class Patient {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue
     private UUID id;
 
+    @Column(nullable = false)
     private String nome;
-    private String cpf;
+
+    @Column(nullable = false, unique = true)
     private String email;
+    
+    @Column(nullable = false)
+    private boolean activated;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "doctor_id")
-    private Doctor doctor;
+    @OneToMany(mappedBy = "patient", fetch = FetchType.LAZY)
+    private List<PatientImage> images = new ArrayList<>();
 
-    public Patient() {}
-
-    public Patient(String nome, String cpf, String email) {
-        this.nome = nome;
-        this.cpf = cpf;
-        this.email = email;
-    }
-
-    public UUID getId() {
-        return id;
-    }
-    public String getNome() {
-        return nome;
-    }
-    public void setNome(String nome) {
-        this.nome = nome;
-    }
-    public String getCpf() {
-        return cpf;
-    }
-    public void setCpf(String cpf) {
-        this.cpf = cpf;
-    }
-    public String getEmail() {
-        return email;
-    }
-    public void setEmail(String email) {
-        this.email = email;
-    }
-    public Doctor getDoctor() {
-        return doctor;
-    }
-    public void setDoctor(Doctor doctor) {
-        this.doctor = doctor;
-    }
+    // Getters e Setters
 }

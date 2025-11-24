@@ -13,8 +13,6 @@ import java.util.List;
 @Entity
 public class Doctor extends User {
 
-    private boolean activated;
-
     @OneToMany(mappedBy = "doctor", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<Patient> patients = new ArrayList<>();
 
@@ -25,17 +23,10 @@ public class Doctor extends User {
     }
 
     public Doctor(String nome, String cpf, String email, String password, String CRM) {
-        super(nome, cpf, email, password, AcessLevel.DOCTOR);
+        super(nome, cpf, email, password, AcessLevel.DOCTOR,true);
         this.CRM = CRM;
-        this.activated = true;
     }
 
-    public boolean isActivated() {
-        return activated;
-    }
-    public void setActivated(boolean activated) {
-        this.activated = activated;
-    }
     public List<Patient> getPatients() {
         return patients;
     }

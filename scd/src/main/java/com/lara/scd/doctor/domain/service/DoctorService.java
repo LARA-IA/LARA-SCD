@@ -1,8 +1,8 @@
 package com.lara.scd.doctor.domain.service;
 
-import com.lara.scd.exception.UnicidadeVioladaException;
 import com.lara.scd.doctor.application.dto.DoctorRegisterRequestDto;
-import com.lara.scd.doctor.application.dto.DoctorRegisterResponseDto;
+import com.lara.scd.exception.UnicidadeVioladaException;
+
 import com.lara.scd.doctor.domain.model.Doctor;
 import com.lara.scd.doctor.domain.repository.IDoctorRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
