@@ -1,16 +1,11 @@
 package com.lara.scd.user.application;
 
-import com.lara.scd.config.security.JwtUtil;
 import com.lara.scd.user.application.dto.LoginRequestDto;
 import com.lara.scd.user.application.dto.LoginResponseDto;
-import com.lara.scd.user.domain.model.User;
-import com.lara.scd.user.domain.repository.IUserRepository;
+import com.lara.scd.user.domain.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -18,35 +13,19 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name = "Authentication", description = "Endpoints de autenticação")
 public class AuthController {
 
-    private final AuthenticationManager authenticationManager;
-    private final JwtUtil jwtUtil;
-    private final IUserRepository userRepository;
+    private final UserService userService;
 
-    public AuthController(AuthenticationManager authenticationManager, JwtUtil jwtUtil, IUserRepository userRepository) {
-        this.authenticationManager = authenticationManager;
-        this.jwtUtil = jwtUtil;
-        this.userRepository = userRepository;
+    public AuthController(UserService userService) {
+        this.userService = userService;
     }
 
     @PostMapping("/login")
     @Operation(summary = "Autenticar usuário", description = "Retorna JWT token válido por 24 horas")
     public ResponseEntity<?> login(@RequestBody LoginRequestDto request) {
         try {
-            authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(
-                            request.getEmail(),
-                            request.getPassword()
-                    )
-            );
-
-            User user = userRepository.findByEmail(request.getEmail())
-                    .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
-
-            String token = jwtUtil.generateToken(request.getEmail(), user);
-            return ResponseEntity.ok(new LoginResponseDto(token, "Bearer"));
-
-        } catch (AuthenticationException e) {
-            return ResponseEntity.status(401).body("Email ou senha inválidos");
+            return ResponseEntity.ok(userService.login(request));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(401).body(e.getMessage());
         }
     }
 }
