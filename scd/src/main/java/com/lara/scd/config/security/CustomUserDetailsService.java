@@ -1,7 +1,7 @@
 package com.lara.scd.config.security;
 
 import com.lara.scd.user.domain.model.User;
-import com.lara.scd.user.domain.model.AcessLevel;
+import com.lara.scd.user.domain.model.AccessLevel;
 import com.lara.scd.user.domain.repository.IUserRepository;
 import com.lara.scd.doctor.domain.model.Doctor;
 import com.lara.scd.manager.domain.model.Manager;
@@ -41,9 +41,9 @@ public class CustomUserDetailsService implements UserDetailsService {
         List<SimpleGrantedAuthority> authorities = new ArrayList<>();
 
         if (user instanceof Doctor) {
-            authorities.add(new SimpleGrantedAuthority("ROLE_" + AcessLevel.DOCTOR.level));
+            authorities.add(new SimpleGrantedAuthority("ROLE_" + AccessLevel.DOCTOR.level));
         } else if (user instanceof Manager) {
-            authorities.add(new SimpleGrantedAuthority("ROLE_" + AcessLevel.MANAGER.level));
+            authorities.add(new SimpleGrantedAuthority("ROLE_" + AccessLevel.MANAGER.level));
         }
 
         return authorities;

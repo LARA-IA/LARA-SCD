@@ -1,9 +1,9 @@
 package com.lara.scd.user.domain.model;
 
-public enum AcessLevel {
+public enum AccessLevel {
     DOCTOR("DOCTOR"),MANAGER("MANAGER");
     public final String level;
-    AcessLevel(String level){
+    AccessLevel(String level){
         this.level = level;
     }
 }

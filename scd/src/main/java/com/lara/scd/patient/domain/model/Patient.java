@@ -1,8 +1,7 @@
 package com.lara.scd.patient.domain.model;
 
+import com.lara.scd.doctor.domain.model.Doctor;
 import jakarta.persistence.*;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -10,20 +9,30 @@ import java.util.UUID;
 public class Patient {
 
     @Id
-    @GeneratedValue
+    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false)
     private String nome;
+    private String cpf;
 
-    @Column(nullable = false, unique = true)
-    private String email;
-    
-    @Column(nullable = false)
-    private boolean activated;
+    @ManyToOne
+    @JoinColumn(name = "doctor_id")
+    private Doctor doctor;
 
-    @OneToMany(mappedBy = "patient", fetch = FetchType.LAZY)
-    private List<PatientImage> images = new ArrayList<>();
+    public Patient() {}
+
+    public Patient(String nome, String cpf) {
+        this.nome = nome;
+        this.cpf = cpf;
+    }
 
     // Getters e Setters
+    public UUID getId() { return id; }
+    public void setId(UUID id) { this.id = id; }
+    public String getNome() { return nome; }
+    public void setNome(String nome) { this.nome = nome; }
+    public String getCpf() { return cpf; }
+    public void setCpf(String cpf) { this.cpf = cpf; }
+    public Doctor getDoctor() { return doctor; }
+    public void setDoctor(Doctor doctor) { this.doctor = doctor; }
 }

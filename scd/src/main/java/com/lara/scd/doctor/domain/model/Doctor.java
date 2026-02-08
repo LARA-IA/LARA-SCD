@@ -1,7 +1,7 @@
 package com.lara.scd.doctor.domain.model;
 
 import com.lara.scd.patient.domain.model.Patient;
-import com.lara.scd.user.domain.model.AcessLevel;
+import com.lara.scd.user.domain.model.AccessLevel;
 import com.lara.scd.user.domain.model.User;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
@@ -23,7 +23,7 @@ public class Doctor extends User {
     }
 
     public Doctor(String nome, String cpf, String email, String password, String CRM) {
-        super(nome, cpf, email, password, AcessLevel.DOCTOR,true);
+        super(nome, cpf, email, password, AccessLevel.DOCTOR,true);
         this.CRM = CRM;
     }
 

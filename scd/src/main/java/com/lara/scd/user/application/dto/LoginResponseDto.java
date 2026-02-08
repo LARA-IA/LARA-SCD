@@ -1,6 +1,6 @@
 package com.lara.scd.user.application.dto;
 
-import com.lara.scd.user.domain.model.AcessLevel;
+import com.lara.scd.user.domain.model.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -14,9 +14,9 @@ public class LoginResponseDto {
     private UUID id;
     private String nome;
     private String email;
-    private AcessLevel accessLevel;
+    private AccessLevel accessLevel;
 
-    public LoginResponseDto(String type, String token, UUID id, String nome, String email, AcessLevel accessLevel) {
+    public LoginResponseDto(String type, String token, UUID id, String nome, String email, AccessLevel accessLevel) {
         this.type = type;
         this.token = token;
         this.id = id;
@@ -65,11 +65,11 @@ public class LoginResponseDto {
         this.email = email;
     }
 
-    public AcessLevel getAccessLevel() {
+    public AccessLevel getAccessLevel() {
         return accessLevel;
     }
 
-    public void setAccessLevel(AcessLevel accessLevel) {
+    public void setAccessLevel(AccessLevel accessLevel) {
         this.accessLevel = accessLevel;
     }
 }

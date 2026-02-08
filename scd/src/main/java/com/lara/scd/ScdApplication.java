@@ -2,7 +2,6 @@ package com.lara.scd;
 
 import com.lara.scd.doctor.domain.model.Doctor;
 import com.lara.scd.manager.domain.model.Manager;
-import com.lara.scd.user.domain.model.AcessLevel;
 import com.lara.scd.user.domain.repository.IUserRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;

@@ -15,7 +15,7 @@ public abstract class User {
 
     public User(){}
 
-    public User(String nome, String cpf, String email, String password, AcessLevel accessLevel, boolean activated) {
+    public User(String nome, String cpf, String email, String password, AccessLevel accessLevel, boolean activated) {
         this.email = email;
         this.password = password;
         this.nome = nome;
@@ -48,7 +48,7 @@ public abstract class User {
     private boolean activated;
 
     @Enumerated(EnumType.STRING)
-    private AcessLevel accessLevel;
+    private AccessLevel accessLevel;
 
     public boolean isActivated() {
         return activated;
