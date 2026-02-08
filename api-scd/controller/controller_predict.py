@@ -34,3 +34,12 @@ async def predict(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao processar a imagem: {str(e)}")
+
+@router.get("/hello")
+async def hello_world():
+    try:
+        with open("hello_world.txt", "a") as f:
+            f.write("ola mundo\n")
+        return {"message": "Ola mundo escrito com sucesso!"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao escrever no arquivo: {str(e)}")
