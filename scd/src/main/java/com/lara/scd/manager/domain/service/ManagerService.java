@@ -1,9 +1,13 @@
 package com.lara.scd.manager.domain.service;
 
+import com.lara.scd.doctor.domain.repository.IDoctorRepository;
 import com.lara.scd.manager.application.dto.ManagerRegisterRequestDto;
 import com.lara.scd.exception.UnicidadeVioladaException;
 import com.lara.scd.manager.domain.model.Manager;
 import com.lara.scd.manager.domain.repository.IManagerRepository;
+import com.lara.scd.patient.domain.repository.IPatientImageRepository;
+import com.lara.scd.patient.domain.repository.IPatientRepository;
+import com.lara.scd.shared.service.FileStorageService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,12 +17,17 @@ public class ManagerService {
 
     private final IManagerRepository managerRepository;
     private final PasswordEncoder passwordEncoder;
+    private final IPatientRepository patientRepository;
+    private final IDoctorRepository doctorRepository;
+    private final IPatientImageRepository imageRepository;
+    private final FileStorageService fileStorageService;
+
 
     public ManagerService(IManagerRepository managerRepository, PasswordEncoder passwordEncoder,
-                          com.lara.scd.patient.domain.repository.IPatientRepository patientRepository,
-                          com.lara.scd.doctor.domain.repository.IDoctorRepository doctorRepository,
-                          com.lara.scd.patient.domain.repository.IPatientImageRepository imageRepository,
-                          com.lara.scd.shared.service.FileStorageService fileStorageService) {
+                          IPatientRepository patientRepository,
+                          IDoctorRepository doctorRepository,
+                          IPatientImageRepository imageRepository,
+                          FileStorageService fileStorageService) {
         this.managerRepository = managerRepository;
         this.passwordEncoder = passwordEncoder;
         this.patientRepository = patientRepository;
