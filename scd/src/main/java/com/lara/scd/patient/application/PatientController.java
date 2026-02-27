@@ -1,6 +1,8 @@
 package com.lara.scd.patient.application;
 
 import com.lara.scd.patient.application.dto.PatientRegisterRequestDto;
+import com.lara.scd.patient.domain.model.DoctorVerdict;
+import com.lara.scd.patient.domain.model.PatientImage;
 import com.lara.scd.patient.domain.service.PatientService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -10,6 +12,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/patient")
@@ -34,5 +38,12 @@ public class PatientController {
     public ResponseEntity<Void> createPatient(@Validated @RequestBody PatientRegisterRequestDto dto) {
         patientService.registerPatient(dto);
         return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    @PutMapping("/images/{imageId}/confirm")
+    public ResponseEntity<PatientImage> confirmDiagnosis(
+            @PathVariable UUID imageId,
+            @RequestBody DoctorVerdict verdict) {
+        return ResponseEntity.ok(patientService.confirmDiagnosis(imageId, verdict));
     }
 }

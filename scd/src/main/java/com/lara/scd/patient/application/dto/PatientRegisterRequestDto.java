@@ -9,5 +9,10 @@ public record PatientRegisterRequestDto(
 
         @NotBlank
         @CPF
-        String cpf
+        String cpf,
+
+        java.time.LocalDate dataNascimento,
+
+        @NotBlank
+        String sexo
 ) {}

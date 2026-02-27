@@ -1,3 +1,3 @@
 package com.lara.scd.predict.application.dto;
 
-public record PredictImageRequestDto(String imageBase64, String filename) {}
+public record PredictImageRequestDto(String imageBase64, String filename,String doctorId,String patientId) {}

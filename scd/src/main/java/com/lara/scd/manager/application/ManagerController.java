@@ -36,4 +36,17 @@ public class ManagerController {
         managerService.registerManager(dto);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
+
+    @GetMapping("/dashboard")
+    public ResponseEntity<com.lara.scd.manager.application.dto.DashboardResponseDto> getDashboard() {
+        return ResponseEntity.ok(managerService.getDashboardStats());
+    }
+
+    @GetMapping("/backup")
+    public ResponseEntity<org.springframework.core.io.Resource> getBackupZip() {
+        org.springframework.core.io.Resource file = managerService.getBackupZip();
+        return ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + file.getFilename() + "\"")
+                .body(file);
+    }
 }

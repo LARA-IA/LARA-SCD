@@ -14,9 +14,17 @@ public class ManagerService {
     private final IManagerRepository managerRepository;
     private final PasswordEncoder passwordEncoder;
 
-    public ManagerService(IManagerRepository managerRepository, PasswordEncoder passwordEncoder) {
+    public ManagerService(IManagerRepository managerRepository, PasswordEncoder passwordEncoder,
+                          com.lara.scd.patient.domain.repository.IPatientRepository patientRepository,
+                          com.lara.scd.doctor.domain.repository.IDoctorRepository doctorRepository,
+                          com.lara.scd.patient.domain.repository.IPatientImageRepository imageRepository,
+                          com.lara.scd.shared.service.FileStorageService fileStorageService) {
         this.managerRepository = managerRepository;
         this.passwordEncoder = passwordEncoder;
+        this.patientRepository = patientRepository;
+        this.doctorRepository = doctorRepository;
+        this.imageRepository = imageRepository;
+        this.fileStorageService = fileStorageService;
     }
 
     @Transactional
@@ -32,5 +40,17 @@ public class ManagerService {
                 passwordEncoder.encode(dto.password())
         );
         managerRepository.save(newManager);
+    }
+
+    public com.lara.scd.manager.application.dto.DashboardResponseDto getDashboardStats() {
+        long totalPatients = patientRepository.count();
+        long totalDoctors = doctorRepository.count();
+        long totalImages = imageRepository.count();
+
+        return new com.lara.scd.manager.application.dto.DashboardResponseDto(totalPatients, totalDoctors, totalImages);
+    }
+
+    public org.springframework.core.io.Resource getBackupZip() {
+        return fileStorageService.getBackupZip();
     }
 }

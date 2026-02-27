@@ -1,34 +1,104 @@
 package com.lara.scd.predict.application;
 
-import com.lara.scd.predict.application.dto.PredictHelloRequestDto;
+import com.lara.scd.patient.domain.model.Patient;
+import com.lara.scd.patient.domain.model.PatientImage;
+import com.lara.scd.patient.domain.repository.IPatientImageRepository;
+import com.lara.scd.patient.domain.repository.IPatientRepository;
+import com.lara.scd.predict.application.dto.AiPredictionResponse;
 import com.lara.scd.predict.domain.service.PredictService;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import com.lara.scd.shared.service.FileStorageService;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.time.LocalDate;
+import java.time.Period;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/predict")
 public class PredictController {
 
     private final PredictService predictService;
+    private final FileStorageService fileStorageService;
+    private final IPatientRepository patientRepository;
+    private final IPatientImageRepository patientImageRepository;
 
-    public PredictController(PredictService predictService) {
+    public PredictController(PredictService predictService, FileStorageService fileStorageService,
+                             IPatientRepository patientRepository, IPatientImageRepository patientImageRepository) {
         this.predictService = predictService;
+        this.fileStorageService = fileStorageService;
+        this.patientRepository = patientRepository;
+        this.patientImageRepository = patientImageRepository;
     }
 
-    @PostMapping("/hello")
-    public String helloWorld(@RequestBody PredictHelloRequestDto dto) {
-        predictService.sendMessage(dto);
-        return "Hello " + dto.name() + " " + dto.surname() + ". Mensagem enviada para fila.";
-    }
+    @PostMapping(value = "/classify/{patientId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<PatientImage> classifyImage(
+            @PathVariable UUID patientId,
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("localizacao") String localizacao) {
+        
+        Patient patient = patientRepository.findById(patientId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Paciente não encontrado"));
 
-    @PostMapping(value = "/classify", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
-    public String classifyImage(@org.springframework.web.bind.annotation.RequestParam("file") MultipartFile file) throws java.io.IOException {
-        String base64Image = java.util.Base64.getEncoder().encodeToString(file.getBytes());
-        var dto = new com.lara.scd.predict.application.dto.PredictImageRequestDto(base64Image, file.getOriginalFilename());
-        predictService.sendImage(dto);
-        return "Imagem enviada para classificação.";
+        int idade = 0;
+        if (patient.getDataNascimento() != null) {
+            idade = Period.between(patient.getDataNascimento(), LocalDate.now()).getYears();
+        }
+
+        String sexo = patient.getSexo() != null ? patient.getSexo() : "M";
+
+        // Call AI Service synchronously
+        AiPredictionResponse iaResponse;
+        try {
+            ByteArrayResource resource = new ByteArrayResource(file.getBytes()) {
+                @Override
+                public String getFilename() {
+                    return file.getOriginalFilename();
+                }
+            };
+            iaResponse = predictService.predictImage(resource, idade, sexo, localizacao);
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Erro ao classificar a imagem na IA", e);
+        }
+
+        // Save file to disk
+        String storedFileName = fileStorageService.storeFile(file);
+
+        // Map AI response
+        String aiClass = null;
+        Double aiConfidence = null;
+        String multClass = null;
+        Double multClassConfidence = null;
+
+        if (iaResponse != null && iaResponse.getPredictions() != null && !iaResponse.getPredictions().isEmpty()) {
+            AiPredictionResponse.Prediction pred = iaResponse.getPredictions().get(0);
+            aiClass = pred.getClassValue();
+            aiConfidence = pred.getProbabilidade();
+            multClass = pred.getMultClassValue();
+            multClassConfidence = pred.getMultClassConfidenceValue();
+        }
+
+        // Save PatientImage entity
+        PatientImage imageEntity = new PatientImage();
+        imageEntity.setPatient(patient);
+        imageEntity.setFileName(file.getOriginalFilename());
+        imageEntity.setFilePath(storedFileName);
+        imageEntity.setFileSize(file.getSize());
+        imageEntity.setContentType(file.getContentType());
+        imageEntity.setLocalizacao(localizacao);
+        imageEntity.setAiDiagnosis(aiClass);
+        imageEntity.setConfidence(aiConfidence);
+        imageEntity.setMultClass(multClass);
+        imageEntity.setMultClassConfidence(multClassConfidence);
+        imageEntity.setConfirmed(false);
+
+        patientImageRepository.save(imageEntity);
+
+        return ResponseEntity.ok(imageEntity);
     }
 }

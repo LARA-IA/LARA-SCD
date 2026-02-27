@@ -12,27 +12,69 @@ public class PatientImage {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private UUID id;
 
-    @Lob
-    @Column(columnDefinition = "LONGTEXT", nullable = false)
-    private String base64Data;
+    @Column(nullable = false)
+    private String filePath;
 
     @Column(nullable = false)
     private String fileName;
 
     @Column(nullable = false)
+    private Long fileSize;
+
+    @Column(nullable = false)
     private String contentType;
 
-    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private PredictionClass predictionClass;
+    private String localizacao;
+
+    @Column(name = "ai_diagnosis")
+    private String aiDiagnosis; // MALIGNO ou BENIGNO
+
+    private Double confidence;
+
+    @Column(name = "mult_class")
+    private String multClass; // melanoma, nevo, etc
+
+    @Column(name = "mult_class_confidence")
+    private Double multClassConfidence;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(name = "doctor_verdict")
     private DoctorVerdict doctorVerdict;
+
+    private Boolean confirmed = false;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "patient_id")
     private Patient patient;
 
-    // Getters e Setters
+    // Construtores, Getters e Setters
+    public PatientImage() {}
+
+    public UUID getId() { return id; }
+    public void setId(UUID id) { this.id = id; }
+    public String getFilePath() { return filePath; }
+    public void setFilePath(String filePath) { this.filePath = filePath; }
+    public String getFileName() { return fileName; }
+    public void setFileName(String fileName) { this.fileName = fileName; }
+    public Long getFileSize() { return fileSize; }
+    public void setFileSize(Long fileSize) { this.fileSize = fileSize; }
+    public String getContentType() { return contentType; }
+    public void setContentType(String contentType) { this.contentType = contentType; }
+    public String getLocalizacao() { return localizacao; }
+    public void setLocalizacao(String localizacao) { this.localizacao = localizacao; }
+    public String getAiDiagnosis() { return aiDiagnosis; }
+    public void setAiDiagnosis(String aiDiagnosis) { this.aiDiagnosis = aiDiagnosis; }
+    public Double getConfidence() { return confidence; }
+    public void setConfidence(Double confidence) { this.confidence = confidence; }
+    public String getMultClass() { return multClass; }
+    public void setMultClass(String multClass) { this.multClass = multClass; }
+    public Double getMultClassConfidence() { return multClassConfidence; }
+    public void setMultClassConfidence(Double multClassConfidence) { this.multClassConfidence = multClassConfidence; }
+    public DoctorVerdict getDoctorVerdict() { return doctorVerdict; }
+    public void setDoctorVerdict(DoctorVerdict doctorVerdict) { this.doctorVerdict = doctorVerdict; }
+    public Boolean getConfirmed() { return confirmed; }
+    public void setConfirmed(Boolean confirmed) { this.confirmed = confirmed; }
+    public Patient getPatient() { return patient; }
+    public void setPatient(Patient patient) { this.patient = patient; }
 }
