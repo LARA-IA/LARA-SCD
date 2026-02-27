@@ -1,4 +1,5 @@
 /.venv
+/api-scd/venv
 
 ### Python ###
 __pycache__ 
