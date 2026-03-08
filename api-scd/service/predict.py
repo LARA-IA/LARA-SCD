@@ -6,8 +6,6 @@ from controller.dto.metadados_dto import MetaDadosDTO
 
 logger = logging.getLogger(__name__)
 
-# Dummy implementation of the model since we don't have the actual .pt files in the context,
-# but we follow the exact logic of the YOLO ultralytics prediction iteration
 try:
     # Em um cenário real seriam:
     # model_binary = YOLO("models/binary_model.pt")
@@ -15,7 +13,7 @@ try:
     # model_maligno = YOLO("models/maligno_model.pt")
     pass
 except Exception as e:
-    logger.error(f"Failed to load YOLO model: {e}")
+    logger.error(f"Failed to load  model: {e}")
 
 async def diagnostic(img_array, dto: MetaDadosDTO):
     if img_array is None:

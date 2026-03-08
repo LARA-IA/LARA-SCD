@@ -1,5 +1,7 @@
 package com.lara.scd.patient.domain.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.lara.scd.consultation.domain.model.Consultation;
 import jakarta.persistence.*;
 
 import java.util.UUID;
@@ -48,6 +50,11 @@ public class PatientImage {
     @JoinColumn(name = "patient_id")
     private Patient patient;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "consultation_id")
+    @JsonBackReference
+    private Consultation consultation;
+
     // Construtores, Getters e Setters
     public PatientImage() {}
 
@@ -77,4 +84,6 @@ public class PatientImage {
     public void setConfirmed(Boolean confirmed) { this.confirmed = confirmed; }
     public Patient getPatient() { return patient; }
     public void setPatient(Patient patient) { this.patient = patient; }
+    public Consultation getConsultation() { return consultation; }
+    public void setConsultation(Consultation consultation) { this.consultation = consultation; }
 }

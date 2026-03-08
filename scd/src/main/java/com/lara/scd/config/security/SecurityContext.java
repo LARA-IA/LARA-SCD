@@ -1,5 +1,7 @@
 package com.lara.scd.config.security;
 
+import com.lara.scd.user.domain.model.User;
+import com.lara.scd.user.domain.repository.IUserRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -11,11 +13,12 @@ import java.util.UUID;
 public class SecurityContext {
 
     private final JwtUtil jwtUtil;
+    private final IUserRepository userRepository;
 
-    public SecurityContext(JwtUtil jwtUtil) {
+    public SecurityContext(JwtUtil jwtUtil, IUserRepository userRepository) {
         this.jwtUtil = jwtUtil;
+        this.userRepository = userRepository;
     }
-
 
     public String getCurrentUserEmail() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -40,5 +43,14 @@ public class SecurityContext {
             }
         }
         return null;
+    }
+
+    public User getCurrentUser() {
+        String email = getCurrentUserEmail();
+        if (email == null) {
+            throw new RuntimeException("Usuário não autenticado");
+        }
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
     }
 }
