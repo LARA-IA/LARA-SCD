@@ -1,4 +1,5 @@
 import api from './api';
+import { Platform } from 'react-native';
 
 // ==================== Types ====================
 
@@ -7,7 +8,7 @@ export interface ConsultationRequest {
     cpf: string;
     sexo: string;
     dataNascimento?: string;
-    localizacao: string;
+    localizacoes: string[];
     images: { uri: string; name: string; type: string }[];
 }
 
@@ -18,6 +19,7 @@ export interface ConsultationResponse {
         nome: string;
         cpf: string;
         sexo: string;
+        dataNascimento?: string;
     };
     doctor: {
         id: string;
@@ -39,6 +41,7 @@ export interface ImageInfo {
     fileName: string;
     fileSize: number;
     contentType: string;
+    localizacao?: string;
     aiDiagnosis?: string;
     confidence?: number;
     multClass?: string;
@@ -69,6 +72,42 @@ export const DoctorVerdictOptions = Object.entries(DoctorVerdictLabels).map(([va
     label,
 }));
 
+export type Localizacao =
+    | 'CABECA'
+    | 'PESCOCO'
+    | 'TRONCO'
+    | 'BRACO_DIREITO'
+    | 'BRACO_ESQUERDO'
+    | 'MAO_DIREITA'
+    | 'MAO_ESQUERDA'
+    | 'PERNA_DIREITA'
+    | 'PERNA_ESQUERDA'
+    | 'PE_DIREITO'
+    | 'PE_ESQUERDO'
+    | 'COSTAS'
+    | 'ABDOMEN';
+
+export const LocalizacaoLabels: Record<Localizacao, string> = {
+    CABECA: 'Cabeça',
+    PESCOCO: 'Pescoço',
+    TRONCO: 'Tronco',
+    BRACO_DIREITO: 'Braço Direito',
+    BRACO_ESQUERDO: 'Braço Esquerdo',
+    MAO_DIREITA: 'Mão Direita',
+    MAO_ESQUERDA: 'Mão Esquerda',
+    PERNA_DIREITA: 'Perna Direita',
+    PERNA_ESQUERDA: 'Perna Esquerda',
+    PE_DIREITO: 'Pé Direito',
+    PE_ESQUERDO: 'Pé Esquerdo',
+    COSTAS: 'Costas',
+    ABDOMEN: 'Abdômen',
+};
+
+export const LocalizacaoOptions = Object.entries(LocalizacaoLabels).map(([value, label]) => ({
+    value: value as Localizacao,
+    label,
+}));
+
 // ==================== Service ====================
 
 export const consultationService = {
@@ -81,18 +120,31 @@ export const consultationService = {
         formData.append('nome', data.nome);
         formData.append('cpf', data.cpf);
         formData.append('sexo', data.sexo);
-        formData.append('localizacao', data.localizacao);
+        data.localizacoes.forEach((loc) => {
+            formData.append('localizacoes', loc);
+        });
         if (data.dataNascimento) {
             formData.append('dataNascimento', data.dataNascimento);
         }
 
-        data.images.forEach((img) => {
-            formData.append('images', {
-                uri: img.uri,
-                name: img.name,
-                type: img.type,
-            } as any);
-        });
+        if (Platform.OS === 'web') {
+            // On web, we need to convert blob URIs to actual File objects
+            for (const img of data.images) {
+                const response = await fetch(img.uri);
+                const blob = await response.blob();
+                const file = new File([blob], img.name, { type: img.type });
+                formData.append('images', file);
+            }
+        } else {
+            // On native (Android/iOS), use the RN FormData extension
+            data.images.forEach((img) => {
+                formData.append('images', {
+                    uri: img.uri,
+                    name: img.name,
+                    type: img.type,
+                } as any);
+            });
+        }
 
         const response = await api.post<ConsultationResponse>(
             '/medico/consultations',

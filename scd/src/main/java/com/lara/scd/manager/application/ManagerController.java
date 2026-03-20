@@ -55,13 +55,21 @@ public class ManagerController {
         }
     }
 
-    @Operation(summary = "Download backup (dataset)", description = "Gera e retorna arquivo ZIP com imagens confirmadas")
+    @Operation(summary = "Download backup (dataset)", description = "Gera e retorna arquivo ZIP com imagens confirmadas e CSV de metadados")
     @GetMapping("/backup")
-    public ResponseEntity<org.springframework.core.io.Resource> getBackupZip() {
-        org.springframework.core.io.Resource file = managerService.getBackupZip();
-        return ResponseEntity.ok()
-                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"scd_database.zip\"")
-                .body(file);
+    public ResponseEntity<?> downloadBackup() {
+        try {
+            byte[] zipBytes = managerService.generateBackup();
+            return ResponseEntity.ok()
+                    .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"scd_database.zip\"")
+                    .header(org.springframework.http.HttpHeaders.CONTENT_TYPE, "application/zip")
+                    .body(zipBytes);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(java.util.Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(java.util.Map.of("error", "Erro ao gerar backup: " + e.getMessage()));
+        }
     }
 }
 

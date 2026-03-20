@@ -3,6 +3,7 @@ package com.lara.scd.consultation.application.dto;
 import com.lara.scd.consultation.domain.model.Consultation;
 import com.lara.scd.patient.domain.model.PatientImage;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -25,7 +26,7 @@ public class ConsultationResponse {
     public static ConsultationResponse from(Consultation c) {
         ConsultationResponse resp = new ConsultationResponse();
         resp.id = c.getId();
-        resp.patient = new PatientInfo(c.getPatient().getId(), c.getPatient().getNome(), c.getPatient().getCpf(), c.getPatient().getSexo());
+        resp.patient = new PatientInfo(c.getPatient().getId(), c.getPatient().getNome(), c.getPatient().getCpf(), c.getPatient().getSexo(), c.getPatient().getDataNascimento());
         resp.doctor = new DoctorInfo(c.getDoctor().getId(), c.getDoctor().getNome());
         resp.aiDiagnosis = c.getAiDiagnosis();
         resp.confidence = c.getConfidence();
@@ -51,7 +52,7 @@ public class ConsultationResponse {
     public LocalDateTime getCreatedAt() { return createdAt; }
     public List<ImageInfo> getImages() { return images; }
 
-    public record PatientInfo(UUID id, String nome, String cpf, String sexo) {}
+    public record PatientInfo(UUID id, String nome, String cpf, String sexo, LocalDate dataNascimento) {}
     public record DoctorInfo(UUID id, String nome) {}
 
     public static class ImageInfo {
@@ -60,6 +61,7 @@ public class ConsultationResponse {
         private String fileName;
         private Long fileSize;
         private String contentType;
+        private String localizacao;
         private String aiDiagnosis;
         private Double confidence;
         private String multClass;
@@ -74,6 +76,7 @@ public class ConsultationResponse {
             info.fileName = img.getFileName();
             info.fileSize = img.getFileSize();
             info.contentType = img.getContentType();
+            info.localizacao = img.getLocalizacao() != null ? img.getLocalizacao().name() : null;
             info.aiDiagnosis = img.getAiDiagnosis();
             info.confidence = img.getConfidence();
             info.multClass = img.getMultClass();
@@ -89,6 +92,7 @@ public class ConsultationResponse {
         public String getFileName() { return fileName; }
         public Long getFileSize() { return fileSize; }
         public String getContentType() { return contentType; }
+        public String getLocalizacao() { return localizacao; }
         public String getAiDiagnosis() { return aiDiagnosis; }
         public Double getConfidence() { return confidence; }
         public String getMultClass() { return multClass; }

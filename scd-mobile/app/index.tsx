@@ -5,7 +5,7 @@ export default function Index() {
     const { isAuthenticated, user } = useAuth();
 
     if (isAuthenticated) {
-        if (user?.accessLevel === 'ADMIN') {
+        if (user?.accessLevel === 'MANAGER') {
             return <Redirect href="/(tabs)/admin" />;
         }
         return <Redirect href="/(tabs)/medico" />;

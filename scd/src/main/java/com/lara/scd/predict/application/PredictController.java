@@ -1,5 +1,6 @@
 package com.lara.scd.predict.application;
 
+import com.lara.scd.patient.domain.model.Localizacao;
 import com.lara.scd.patient.domain.model.Patient;
 import com.lara.scd.patient.domain.model.PatientImage;
 import com.lara.scd.patient.domain.repository.IPatientImageRepository;
@@ -90,7 +91,7 @@ public class PredictController {
         imageEntity.setFilePath(storedFileName);
         imageEntity.setFileSize(file.getSize());
         imageEntity.setContentType(file.getContentType());
-        imageEntity.setLocalizacao(localizacao);
+        imageEntity.setLocalizacao(Localizacao.valueOf(localizacao));
         imageEntity.setAiDiagnosis(aiClass);
         imageEntity.setConfidence(aiConfidence);
         imageEntity.setMultClass(multClass);

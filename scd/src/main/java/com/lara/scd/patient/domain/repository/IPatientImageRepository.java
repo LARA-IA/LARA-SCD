@@ -11,4 +11,6 @@ import java.util.UUID;
 public interface IPatientImageRepository extends JpaRepository<PatientImage, UUID> {
 
     List<PatientImage> findByPatientId(UUID patientId);
+
+    List<PatientImage> findByConfirmedTrue();
 }

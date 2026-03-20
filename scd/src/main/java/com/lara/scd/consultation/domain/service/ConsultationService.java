@@ -9,6 +9,7 @@ import com.lara.scd.consultation.domain.repository.IConsultationRepository;
 import com.lara.scd.doctor.domain.model.Doctor;
 import com.lara.scd.doctor.domain.repository.IDoctorRepository;
 import com.lara.scd.patient.domain.model.DoctorVerdict;
+import com.lara.scd.patient.domain.model.Localizacao;
 import com.lara.scd.patient.domain.model.Patient;
 import com.lara.scd.patient.domain.model.PatientImage;
 import com.lara.scd.patient.domain.repository.IPatientImageRepository;
@@ -95,6 +96,24 @@ public class ConsultationService {
         if (images == null || images.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pelo menos uma imagem é obrigatória");
         }
+        if (images.size() > 20) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Máximo de 20 imagens por consulta");
+        }
+
+        List<String> localizacoesStr = request.getLocalizacoes();
+        if (localizacoesStr == null || localizacoesStr.size() != images.size()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A quantidade de localizações deve ser igual à quantidade de imagens");
+        }
+
+        // Convert strings to Localizacao enum
+        List<Localizacao> localizacoes = new java.util.ArrayList<>();
+        for (String loc : localizacoesStr) {
+            try {
+                localizacoes.add(Localizacao.valueOf(loc));
+            } catch (IllegalArgumentException e) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Localização inválida: " + loc);
+            }
+        }
 
         int idade = 0;
         if (patient.getDataNascimento() != null) {
@@ -102,8 +121,10 @@ public class ConsultationService {
         }
         String sexo = patient.getSexo() != null ? patient.getSexo() : "M";
 
-        boolean isFirst = true;
-        for (MultipartFile file : images) {
+        for (int i = 0; i < images.size(); i++) {
+            MultipartFile file = images.get(i);
+            Localizacao localizacao = localizacoes.get(i);
+
             // Call AI service
             AiPredictionResponse iaResponse = null;
             try {
@@ -113,9 +134,10 @@ public class ConsultationService {
                         return file.getOriginalFilename();
                     }
                 };
-                iaResponse = predictService.predictImage(resource, idade, sexo, request.getLocalizacao());
+                iaResponse = predictService.predictImage(resource, idade, sexo, localizacao.name());
             } catch (Exception e) {
-                // Log and continue; the image is saved but without AI diagnosis
+                // Log the error so we can debug AI service connectivity
+                System.err.println("Falha ao chamar serviço de IA para imagem " + file.getOriginalFilename() + ": " + e.getMessage());
             }
 
             // Save file to disk
@@ -143,7 +165,7 @@ public class ConsultationService {
             imageEntity.setFilePath(storedFileName);
             imageEntity.setFileSize(file.getSize());
             imageEntity.setContentType(file.getContentType());
-            imageEntity.setLocalizacao(request.getLocalizacao());
+            imageEntity.setLocalizacao(localizacao);
             imageEntity.setAiDiagnosis(aiClass);
             imageEntity.setConfidence(aiConfidence);
             imageEntity.setMultClass(multClass);
@@ -154,12 +176,11 @@ public class ConsultationService {
             consultation.getImages().add(imageEntity);
 
             // Set consultation-level diagnosis from first image
-            if (isFirst) {
+            if (i == 0) {
                 consultation.setAiDiagnosis(aiClass);
                 consultation.setConfidence(aiConfidence);
                 consultation.setMultClass(multClass);
                 consultation.setMultClassConfidence(multClassConfidence);
-                isFirst = false;
             }
         }
 

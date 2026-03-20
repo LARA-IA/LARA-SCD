@@ -26,8 +26,9 @@ public class PatientImage {
     @Column(nullable = false)
     private String contentType;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private String localizacao;
+    private Localizacao localizacao;
 
     @Column(name = "ai_diagnosis")
     private String aiDiagnosis; // MALIGNO ou BENIGNO
@@ -68,8 +69,8 @@ public class PatientImage {
     public void setFileSize(Long fileSize) { this.fileSize = fileSize; }
     public String getContentType() { return contentType; }
     public void setContentType(String contentType) { this.contentType = contentType; }
-    public String getLocalizacao() { return localizacao; }
-    public void setLocalizacao(String localizacao) { this.localizacao = localizacao; }
+    public Localizacao getLocalizacao() { return localizacao; }
+    public void setLocalizacao(Localizacao localizacao) { this.localizacao = localizacao; }
     public String getAiDiagnosis() { return aiDiagnosis; }
     public void setAiDiagnosis(String aiDiagnosis) { this.aiDiagnosis = aiDiagnosis; }
     public Double getConfidence() { return confidence; }

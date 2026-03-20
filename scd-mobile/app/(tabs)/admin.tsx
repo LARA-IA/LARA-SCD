@@ -8,6 +8,7 @@ import {
     RefreshControl,
     ActivityIndicator,
     Alert,
+    Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -51,19 +52,34 @@ export default function AdminDashboardScreen() {
             const backupUrl = await adminService.downloadBackup();
             const dateStr = new Date().toISOString().split('T')[0];
 
-            // Use fetch to download, then write to cache via expo-file-system v19
             const response = await fetch(backupUrl, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                 },
             });
 
-            if (response.ok) {
-                const blob = await response.blob();
-                const fileName = `scd_backup_${dateStr}.zip`;
-                const file = new ExpoFile(Paths.cache, fileName);
+            if (!response.ok) {
+                setError('Erro ao baixar backup');
+                return;
+            }
 
-                // Write blob as ArrayBuffer
+            const blob = await response.blob();
+            const fileName = `scd_backup_${dateStr}.zip`;
+
+            if (Platform.OS === 'web') {
+                // Web: trigger browser download
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                Alert.alert('Sucesso', 'Backup baixado com sucesso!');
+            } else {
+                // Native: use expo-file-system + expo-sharing
+                const file = new ExpoFile(Paths.cache, fileName);
                 const arrayBuffer = await blob.arrayBuffer();
                 const uint8 = new Uint8Array(arrayBuffer);
                 const writer = file.writableStream().getWriter();
@@ -77,10 +93,8 @@ export default function AdminDashboardScreen() {
                         dialogTitle: 'Salvar Backup SCD',
                     });
                 } else {
-                    Alert.alert('Sucesso', `Backup salvo no cache do app.`);
+                    Alert.alert('Sucesso', 'Backup salvo no cache do app.');
                 }
-            } else {
-                setError('Erro ao baixar backup');
             }
         } catch (err: any) {
             setError('Erro ao baixar backup');

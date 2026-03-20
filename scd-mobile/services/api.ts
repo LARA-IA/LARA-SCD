@@ -9,7 +9,7 @@ const getBaseUrl = () => {
         return 'http://192.168.1.4:8080/api';
     }
     // iOS simulator can use localhost
-    return 'http://localhost:8080/api';
+    return 'http://127.0.0.1:8080/api';
 };
 
 const API_URL = getBaseUrl();

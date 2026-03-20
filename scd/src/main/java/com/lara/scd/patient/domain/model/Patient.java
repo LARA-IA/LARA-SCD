@@ -1,9 +1,13 @@
 package com.lara.scd.patient.domain.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.lara.scd.consultation.domain.model.Consultation;
 import com.lara.scd.doctor.domain.model.Doctor;
 import jakarta.persistence.*;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -22,6 +26,10 @@ public class Patient {
     @ManyToOne
     @JoinColumn(name = "doctor_id")
     private Doctor doctor;
+
+    @OneToMany(mappedBy = "patient", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
+    private List<Consultation> consultations = new ArrayList<>();
 
     public Patient() {}
 
@@ -44,4 +52,6 @@ public class Patient {
     public void setSexo(String sexo) { this.sexo = sexo; }
     public Doctor getDoctor() { return doctor; }
     public void setDoctor(Doctor doctor) { this.doctor = doctor; }
+    public List<Consultation> getConsultations() { return consultations; }
+    public void setConsultations(List<Consultation> consultations) { this.consultations = consultations; }
 }

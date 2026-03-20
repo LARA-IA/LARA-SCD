@@ -1,6 +1,7 @@
 package com.lara.scd.consultation.application.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -20,8 +21,8 @@ public class ConsultationRequest {
 
     private LocalDate dataNascimento;
 
-    @NotBlank
-    private String localizacao;
+    @NotEmpty
+    private List<String> localizacoes;
 
     private List<MultipartFile> images;
 
@@ -33,8 +34,8 @@ public class ConsultationRequest {
     public void setSexo(String sexo) { this.sexo = sexo; }
     public LocalDate getDataNascimento() { return dataNascimento; }
     public void setDataNascimento(LocalDate dataNascimento) { this.dataNascimento = dataNascimento; }
-    public String getLocalizacao() { return localizacao; }
-    public void setLocalizacao(String localizacao) { this.localizacao = localizacao; }
+    public List<String> getLocalizacoes() { return localizacoes; }
+    public void setLocalizacoes(List<String> localizacoes) { this.localizacoes = localizacoes; }
     public List<MultipartFile> getImages() { return images; }
     public void setImages(List<MultipartFile> images) { this.images = images; }
 }

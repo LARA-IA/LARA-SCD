@@ -6,7 +6,7 @@ import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
 function AuthGate() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, user } = useAuth();
   const segments = useSegments();
   const router = useRouter();
 
@@ -19,8 +19,12 @@ function AuthGate() {
       // Redirect to login if trying to access tabs while not authenticated
       router.replace('/login');
     } else if (isAuthenticated && !inAuthGroup) {
-      // Redirect to tabs if authenticated and on login/register page
-      router.replace('/(tabs)/medico');
+      // Redirect to the appropriate tab based on role
+      if (user?.accessLevel === 'MANAGER') {
+        router.replace('/(tabs)/admin');
+      } else {
+        router.replace('/(tabs)/medico');
+      }
     }
   }, [isAuthenticated, loading, segments]);
 
