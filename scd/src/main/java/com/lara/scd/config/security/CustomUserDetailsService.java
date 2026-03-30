@@ -2,7 +2,7 @@ package com.lara.scd.config.security;
 
 import com.lara.scd.user.domain.model.User;
 import com.lara.scd.user.domain.model.AccessLevel;
-import com.lara.scd.user.domain.repository.IUserRepository;
+import com.lara.scd.user.domain.repository.UserRepository;
 import com.lara.scd.doctor.domain.model.Doctor;
 import com.lara.scd.manager.domain.model.Manager;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -17,9 +17,9 @@ import java.util.List;
 @Service
 public class CustomUserDetailsService implements UserDetailsService {
 
-    private final IUserRepository userRepository;
+    private final UserRepository userRepository;
 
-    public CustomUserDetailsService(IUserRepository userRepository) {
+    public CustomUserDetailsService(UserRepository userRepository) {
         this.userRepository = userRepository;
     }
 

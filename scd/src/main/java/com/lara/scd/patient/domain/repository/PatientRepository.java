@@ -9,7 +9,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface IPatientRepository extends JpaRepository<Patient, UUID> {
+public interface PatientRepository extends JpaRepository<Patient, UUID> {
     Optional<Patient> findByCpf(String cpf);
 
     List<Patient> findByDoctorId(UUID doctorId);

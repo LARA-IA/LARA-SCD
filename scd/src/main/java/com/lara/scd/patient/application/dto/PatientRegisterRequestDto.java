@@ -8,7 +8,7 @@ public record PatientRegisterRequestDto(
         String nome,
 
         @NotBlank
-        @CPF
+        //@CPF
         String cpf,
 
         java.time.LocalDate dataNascimento,

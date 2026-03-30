@@ -1,11 +1,15 @@
 package com.lara.scd.predict.application;
 
+import com.lara.scd.patient.application.dto.PatientImageResponseDto;
+import com.lara.scd.patient.domain.model.AiProcessingStatus;
 import com.lara.scd.patient.domain.model.Localizacao;
 import com.lara.scd.patient.domain.model.Patient;
 import com.lara.scd.patient.domain.model.PatientImage;
-import com.lara.scd.patient.domain.repository.IPatientImageRepository;
-import com.lara.scd.patient.domain.repository.IPatientRepository;
+import com.lara.scd.patient.domain.repository.PatientImageRepository;
+import com.lara.scd.patient.domain.repository.PatientRepository;
 import com.lara.scd.predict.application.dto.AiPredictionResponse;
+import com.lara.scd.predict.domain.model.AiPrediction;
+import com.lara.scd.predict.domain.repository.AiPredictionRepository;
 import com.lara.scd.predict.domain.service.PredictService;
 import com.lara.scd.shared.service.FileStorageService;
 import org.springframework.core.io.ByteArrayResource;
@@ -24,25 +28,30 @@ import java.util.UUID;
 @RequestMapping("/api/predict")
 public class PredictController {
 
+    private static final String AI_MODEL_VERSION = "YOLOv8_simulated_v1.0";
+
     private final PredictService predictService;
     private final FileStorageService fileStorageService;
-    private final IPatientRepository patientRepository;
-    private final IPatientImageRepository patientImageRepository;
+    private final PatientRepository patientRepository;
+    private final PatientImageRepository patientImageRepository;
+    private final AiPredictionRepository aiPredictionRepository;
 
     public PredictController(PredictService predictService, FileStorageService fileStorageService,
-                             IPatientRepository patientRepository, IPatientImageRepository patientImageRepository) {
+                             PatientRepository patientRepository, PatientImageRepository patientImageRepository,
+                             AiPredictionRepository aiPredictionRepository) {
         this.predictService = predictService;
         this.fileStorageService = fileStorageService;
         this.patientRepository = patientRepository;
         this.patientImageRepository = patientImageRepository;
+        this.aiPredictionRepository = aiPredictionRepository;
     }
 
     @PostMapping(value = "/classify/{patientId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<PatientImage> classifyImage(
+    public ResponseEntity<PatientImageResponseDto> classifyImage(
             @PathVariable UUID patientId,
             @RequestParam("file") MultipartFile file,
             @RequestParam("localizacao") String localizacao) {
-        
+
         Patient patient = patientRepository.findById(patientId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Paciente não encontrado"));
 
@@ -70,20 +79,6 @@ public class PredictController {
         // Save file to disk
         String storedFileName = fileStorageService.storeFile(file);
 
-        // Map AI response
-        String aiClass = null;
-        Double aiConfidence = null;
-        String multClass = null;
-        Double multClassConfidence = null;
-
-        if (iaResponse != null && iaResponse.getPredictions() != null && !iaResponse.getPredictions().isEmpty()) {
-            AiPredictionResponse.Prediction pred = iaResponse.getPredictions().get(0);
-            aiClass = pred.getClassValue();
-            aiConfidence = pred.getProbabilidade();
-            multClass = pred.getMultClassValue();
-            multClassConfidence = pred.getMultClassConfidenceValue();
-        }
-
         // Save PatientImage entity
         PatientImage imageEntity = new PatientImage();
         imageEntity.setPatient(patient);
@@ -92,14 +87,35 @@ public class PredictController {
         imageEntity.setFileSize(file.getSize());
         imageEntity.setContentType(file.getContentType());
         imageEntity.setLocalizacao(Localizacao.valueOf(localizacao));
-        imageEntity.setAiDiagnosis(aiClass);
-        imageEntity.setConfidence(aiConfidence);
-        imageEntity.setMultClass(multClass);
-        imageEntity.setMultClassConfidence(multClassConfidence);
         imageEntity.setConfirmed(false);
+        imageEntity.setStatusProcessamentoIa(AiProcessingStatus.PENDENTE);
 
-        patientImageRepository.save(imageEntity);
+        imageEntity = patientImageRepository.save(imageEntity);
 
-        return ResponseEntity.ok(imageEntity);
+        // Create AiPrediction record from AI response
+        if (iaResponse != null && iaResponse.getPredictions() != null && !iaResponse.getPredictions().isEmpty()) {
+            AiPredictionResponse.Prediction pred = iaResponse.getPredictions().get(0);
+
+            String modelVersion = iaResponse.getModelVersion() != null
+                    ? iaResponse.getModelVersion()
+                    : AI_MODEL_VERSION;
+
+            AiPrediction aiPrediction = new AiPrediction();
+            aiPrediction.setPatientImage(imageEntity);
+            aiPrediction.setVersaoModelo(modelVersion);
+            aiPrediction.setClasseInferida(pred.getClassValue());
+            aiPrediction.setConfianca(pred.getProbabilidade());
+            aiPrediction.setMultClasse(pred.getMultClassValue());
+            aiPrediction.setConfiancaMultClasse(pred.getMultClassConfidenceValue());
+            aiPredictionRepository.save(aiPrediction);
+
+            imageEntity.setStatusProcessamentoIa(AiProcessingStatus.CONCLUIDO);
+        } else {
+            imageEntity.setStatusProcessamentoIa(AiProcessingStatus.FALHA);
+        }
+
+        imageEntity = patientImageRepository.save(imageEntity);
+
+        return ResponseEntity.ok(PatientImageResponseDto.from(imageEntity));
     }
 }

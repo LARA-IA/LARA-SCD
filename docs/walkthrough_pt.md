@@ -33,6 +33,7 @@ O sistema é composto por **3 serviços desacoplados**:
 
 - **Framework:** FastAPI + Uvicorn
 - **Endpoint:** `POST /predict/` — recebe imagem + metadados (idade, sexo, localização)
+- **Resposta:** JSON com `predictions[]` e `model_version` (para rastreabilidade do modelo)
 - **Pipeline de classificação** (hierárquico, top-down):
   1. **Modelo binário** → `benigno` ou `maligno`
   2. **Modelo multiclasse** → subtipo conforme resultado binário:
@@ -56,13 +57,16 @@ Organizado por **módulos de domínio**, cada um com camadas `application` (cont
 |---|---|
 | `consultation` | Ciclo de vida da consulta (criar, listar, confirmar diagnóstico) |
 | `doctor` | Cadastro e gerenciamento de médicos |
-| `patient` | CRUD de pacientes, imagens, vereditos |
+| `patient` | CRUD de pacientes (**separado da consulta**), imagens, vereditos |
 | `lesion` | Rastreamento de lesões físicas ao longo das consultas (evolução temporal) |
 | `predict` | Versionamento de predições de IA + proxy para a API Python |
-| `manager` | Operações do administrador, dashboard |
+| `manager` | Operações do administrador, dashboard (5 métricas) |
 | `user` | Autenticação (login, JWT) |
 | `shared` | Armazenamento de arquivos, servir arquivos estáticos |
 | `config/security` | Filtro JWT, configuração do Spring Security |
+
+> [!NOTE]
+> **DTOs em todos os controllers**: Nenhuma entidade JPA é retornada diretamente. Cada controller usa records ou classes DTO com factory method `from()`. Repositórios seguem convenção Java (sem prefixo `I`).
 
 **Dependências principais:** Spring Data JPA, Spring Security, JWT (jjwt + java-jwt), WebFlux (HTTP assíncrono para a API de IA), Lombok, SpringDoc (Swagger), MySQL, H2 (teste).
 
@@ -140,31 +144,46 @@ erDiagram
 | Diretório | Conteúdo |
 |---|---|
 | `app/` | Telas: [login.tsx](file:///c:/Users/Jair%20Victor/Documents/LARA-SCD/scd-mobile/app/login.tsx), [register.tsx](file:///c:/Users/Jair%20Victor/Documents/LARA-SCD/scd-mobile/app/register.tsx), [index.tsx](file:///c:/Users/Jair%20Victor/Documents/LARA-SCD/scd-mobile/app/index.tsx), tabs ([admin.tsx](file:///c:/Users/Jair%20Victor/Documents/LARA-SCD/scd-mobile/app/%28tabs%29/admin.tsx), [medico.tsx](file:///c:/Users/Jair%20Victor/Documents/LARA-SCD/scd-mobile/app/%28tabs%29/medico.tsx)) |
-| `services/` | Clientes de API: [api.ts](file:///c:/Users/Jair%20Victor/Documents/LARA-SCD/scd-mobile/services/api.ts), [authService.ts](file:///c:/Users/Jair%20Victor/Documents/LARA-SCD/scd-mobile/services/authService.ts), [consultationService.ts](file:///c:/Users/Jair%20Victor/Documents/LARA-SCD/scd-mobile/services/consultationService.ts), [predictService.ts](file:///c:/Users/Jair%20Victor/Documents/LARA-SCD/scd-mobile/services/predictService.ts), [adminService.ts](file:///c:/Users/Jair%20Victor/Documents/LARA-SCD/scd-mobile/services/adminService.ts) |
+| `services/` | [api.ts](file:///c:/Users/Jair%20Victor/Documents/LARA-SCD/scd-mobile/services/api.ts), [authService.ts](file:///c:/Users/Jair%20Victor/Documents/LARA-SCD/scd-mobile/services/authService.ts), [consultationService.ts](file:///c:/Users/Jair%20Victor/Documents/LARA-SCD/scd-mobile/services/consultationService.ts), **[patientService.ts](file:///c:/Users/Jair%20Victor/Documents/LARA-SCD/scd-mobile/services/patientService.ts)** (CRUD pacientes separado), [adminService.ts](file:///c:/Users/Jair%20Victor/Documents/LARA-SCD/scd-mobile/services/adminService.ts), [predictService.ts](file:///c:/Users/Jair%20Victor/Documents/LARA-SCD/scd-mobile/services/predictService.ts) (deprecated) |
 | `contexts/` | [AuthContext.tsx](file:///c:/Users/Jair%20Victor/Documents/LARA-SCD/scd-mobile/contexts/AuthContext.tsx) — estado de autenticação e navegação por papel |
 | `components/` | Componentes reutilizáveis de UI |
 | `constants/` | Configuração de tema |
 
 ---
 
-## Fluxo de Dados: Diagnóstico de Lesão Cutânea
+## Fluxo de Dados
 
+### Cadastro de Paciente (separado da consulta)
+```mermaid
+sequenceDiagram
+  participant M as Médico (Mobile)
+  participant B as Backend (Java)
+  
+  M->>B: POST /api/patient/register (nome, cpf, sexo, termoConsentimentoIa)
+  B->>B: Valida CPF único, registra consentimento LGPD
+  B-->>M: PatientResponseDto (id, nome, cpf, timestamps)
+```
+
+### Diagnóstico de Lesão Cutânea
 ```mermaid
 sequenceDiagram
   participant M as Médico (Mobile)
   participant B as Backend (Java)
   participant IA as API de IA (Python)
   
-  M->>B: Upload da imagem da lesão + dados do paciente
-  B->>B: Armazena imagem, cria consulta
+  M->>B: Busca paciente por CPF (GET /api/patient/search)
+  B-->>M: PatientResponseDto
+  M->>B: Upload da imagem + patientId (POST /api/medico/consultations)
+  B->>B: Busca paciente por ID (404 se não existe)
+  B->>B: Cria consulta, armazena imagem
   B->>B: Busca/cria Lesão (por paciente + localização)
   B->>B: Salva PatientImage (status: PENDENTE)
   B->>IA: POST /predict/ (imagem + metadados)
   IA->>IA: Executa pipeline de classificação
-  IA-->>B: JSON {Classe, Probabilidade, MultClasse}
+  IA-->>B: JSON {predictions[], model_version}
   B->>B: Cria registro AiPrediction (versionado)
   B->>B: Atualiza status → CONCLUIDO ou FALHA
-  B-->>M: Retorna consulta com sugestões da IA
+  B-->>M: ConsultationResponse (DTOs, não entidades)
   M->>B: Confirma/altera diagnóstico (Veredito Médico)
   B->>B: Calcula concordanciaIa (concorda com a IA?)
   B->>B: Marca imagem como confirmada
@@ -185,3 +204,6 @@ sequenceDiagram
 
 > [!NOTE]
 > As predições de IA agora são **versionadas** na tabela `ai_predictions`. Uma mesma imagem pode ser reavaliada por modelos mais novos sem perder o histórico. O campo `concordancia_ia` em cada imagem registra se o médico concordou com a classificação binária da IA (maligno/benigno).
+
+> [!NOTE]
+> O cadastro de paciente é **separado** da criação de consulta. O médico primeiro cadastra o paciente (com consentimento LGPD), e depois cria consultas vinculando pelo `patientId`.

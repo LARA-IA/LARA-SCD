@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Repository
-public interface IPatientImageRepository extends JpaRepository<PatientImage, UUID> {
+public interface PatientImageRepository extends JpaRepository<PatientImage, UUID> {
 
     List<PatientImage> findByPatientId(UUID patientId);
 

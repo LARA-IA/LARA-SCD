@@ -33,6 +33,7 @@ The system is composed of **3 decoupled services**:
 
 - **Framework:** FastAPI + Uvicorn
 - **Endpoint:** `POST /predict/` — receives an image + metadata (age, sex, location)
+- **Response:** JSON with `predictions[]` and `model_version` (for model traceability)
 - **Classification pipeline** (hierarchical, top-down):
   1. **Binary model** → `benigno` or `maligno`
   2. **Multiclass model** → subtype based on binary result:
@@ -56,13 +57,16 @@ Organized by **domain modules**, each with `application` (controllers/DTOs) and 
 |---|---|
 | `consultation` | Consultation lifecycle (create, list, confirm diagnosis) |
 | `doctor` | Doctor registration and management |
-| `patient` | Patient CRUD, images, verdicts |
+| `patient` | Patient CRUD (**decoupled from consultation**), images, verdicts |
 | `lesion` | Physical lesion tracking across consultations (temporal evolution) |
 | `predict` | AI prediction versioning + proxy to the Python AI API |
-| `manager` | Admin/manager operations, dashboard |
+| `manager` | Admin/manager operations, dashboard (5 metrics) |
 | `user` | Authentication (login, JWT) |
 | `shared` | File storage, static file serving |
 | `config/security` | JWT filter, Spring Security config |
+
+> [!NOTE]
+> **DTOs on all controllers**: No JPA entity is returned directly. Each controller uses record or class DTOs with `from()` factory method. Repositories follow Java convention (no `I` prefix).
 
 **Key dependencies:** Spring Data JPA, Spring Security, JWT (jjwt + java-jwt), WebFlux (for async HTTP to AI API), Lombok, SpringDoc (Swagger), MySQL, H2 (test).
 
@@ -140,31 +144,46 @@ erDiagram
 | Directory | Contents |
 |---|---|
 | `app/` | Screens: [login.tsx](file:///c:/Users/Jair%20Victor/Documents/LARA-SCD/scd-mobile/app/login.tsx), [register.tsx](file:///c:/Users/Jair%20Victor/Documents/LARA-SCD/scd-mobile/app/register.tsx), [index.tsx](file:///c:/Users/Jair%20Victor/Documents/LARA-SCD/scd-mobile/app/index.tsx), tabs ([admin.tsx](file:///c:/Users/Jair%20Victor/Documents/LARA-SCD/scd-mobile/app/%28tabs%29/admin.tsx), [medico.tsx](file:///c:/Users/Jair%20Victor/Documents/LARA-SCD/scd-mobile/app/%28tabs%29/medico.tsx)) |
-| `services/` | API clients: [api.ts](file:///c:/Users/Jair%20Victor/Documents/LARA-SCD/scd-mobile/services/api.ts), [authService.ts](file:///c:/Users/Jair%20Victor/Documents/LARA-SCD/scd-mobile/services/authService.ts), [consultationService.ts](file:///c:/Users/Jair%20Victor/Documents/LARA-SCD/scd-mobile/services/consultationService.ts), [predictService.ts](file:///c:/Users/Jair%20Victor/Documents/LARA-SCD/scd-mobile/services/predictService.ts), [adminService.ts](file:///c:/Users/Jair%20Victor/Documents/LARA-SCD/scd-mobile/services/adminService.ts) |
+| `services/` | [api.ts](file:///c:/Users/Jair%20Victor/Documents/LARA-SCD/scd-mobile/services/api.ts), [authService.ts](file:///c:/Users/Jair%20Victor/Documents/LARA-SCD/scd-mobile/services/authService.ts), [consultationService.ts](file:///c:/Users/Jair%20Victor/Documents/LARA-SCD/scd-mobile/services/consultationService.ts), **[patientService.ts](file:///c:/Users/Jair%20Victor/Documents/LARA-SCD/scd-mobile/services/patientService.ts)** (decoupled patient CRUD), [adminService.ts](file:///c:/Users/Jair%20Victor/Documents/LARA-SCD/scd-mobile/services/adminService.ts), [predictService.ts](file:///c:/Users/Jair%20Victor/Documents/LARA-SCD/scd-mobile/services/predictService.ts) (deprecated) |
 | `contexts/` | [AuthContext.tsx](file:///c:/Users/Jair%20Victor/Documents/LARA-SCD/scd-mobile/contexts/AuthContext.tsx) — authentication state and role-based navigation |
 | `components/` | Reusable UI components |
 | `constants/` | Theme configuration |
 
 ---
 
-## Data Flow: Skin Lesion Diagnosis
+## Data Flow
 
+### Patient Registration (decoupled from consultation)
+```mermaid
+sequenceDiagram
+  participant D as Doctor (Mobile)
+  participant B as Backend (Java)
+  
+  D->>B: POST /api/patient/register (nome, cpf, sexo, termoConsentimentoIa)
+  B->>B: Validate unique CPF, record LGPD consent
+  B-->>D: PatientResponseDto (id, nome, cpf, timestamps)
+```
+
+### Skin Lesion Diagnosis
 ```mermaid
 sequenceDiagram
   participant D as Doctor (Mobile)
   participant B as Backend (Java)
   participant AI as AI API (Python)
   
-  D->>B: Upload lesion image + patient data
-  B->>B: Store image, create consultation
+  D->>B: Search patient by CPF (GET /api/patient/search)
+  B-->>D: PatientResponseDto
+  D->>B: Upload image + patientId (POST /api/medico/consultations)
+  B->>B: Fetch patient by ID (404 if not found)
+  B->>B: Create consultation, store image
   B->>B: Find/create Lesion (by patient + location)
   B->>B: Save PatientImage (status: PENDENTE)
   B->>AI: POST /predict/ (image + metadata)
   AI->>AI: Run classification pipeline
-  AI-->>B: JSON {Class, Probability, MultClass}
+  AI-->>B: JSON {predictions[], model_version}
   B->>B: Create AiPrediction record (versioned)
   B->>B: Update status → CONCLUIDO or FALHA
-  B-->>D: Return consultation with AI suggestions
+  B-->>D: ConsultationResponse (DTOs, not entities)
   D->>B: Confirm/override diagnosis (Doctor Verdict)
   B->>B: Calculate concordanciaIa (agree with AI?)
   B->>B: Mark image as confirmed
@@ -185,3 +204,7 @@ sequenceDiagram
 
 > [!NOTE]
 > AI predictions are now **versioned** in the `ai_predictions` table. A single image can be re-evaluated by newer models without losing historical data. The `concordancia_ia` field on each image tracks whether the doctor agreed with the AI's binary classification (malignant/benign).
+
+> [!NOTE]
+> Patient registration is **decoupled** from consultation creation. The doctor first registers the patient (with LGPD consent), then creates consultations linking by `patientId`.
+

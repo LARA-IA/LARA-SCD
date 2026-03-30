@@ -2,13 +2,13 @@ package com.lara.scd.patient.domain.service;
 
 import com.lara.scd.config.security.SecurityContext;
 import com.lara.scd.doctor.domain.model.Doctor;
-import com.lara.scd.doctor.domain.repository.IDoctorRepository;
+import com.lara.scd.doctor.domain.repository.DoctorRepository;
 import com.lara.scd.patient.application.dto.PatientRegisterRequestDto;
 import com.lara.scd.patient.domain.model.DoctorVerdict;
 import com.lara.scd.patient.domain.model.Patient;
 import com.lara.scd.patient.domain.model.PatientImage;
-import com.lara.scd.patient.domain.repository.IPatientImageRepository;
-import com.lara.scd.patient.domain.repository.IPatientRepository;
+import com.lara.scd.patient.domain.repository.PatientImageRepository;
+import com.lara.scd.patient.domain.repository.PatientRepository;
 import com.lara.scd.user.domain.model.User;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -23,14 +23,14 @@ import java.util.UUID;
 @Service
 public class PatientService {
 
-    private final IPatientRepository patientRepository;
-    private final IPatientImageRepository imageRepository;
-    private final IDoctorRepository doctorRepository;
+    private final PatientRepository patientRepository;
+    private final PatientImageRepository imageRepository;
+    private final DoctorRepository doctorRepository;
     private final SecurityContext securityContext;
 
-    public PatientService(IPatientRepository patientRepository,
-                          IPatientImageRepository imageRepository,
-                          IDoctorRepository doctorRepository,
+    public PatientService(PatientRepository patientRepository,
+                          PatientImageRepository imageRepository,
+                          DoctorRepository doctorRepository,
                           SecurityContext securityContext) {
         this.patientRepository = patientRepository;
         this.imageRepository = imageRepository;

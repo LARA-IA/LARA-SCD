@@ -2,7 +2,7 @@ package com.lara.scd;
 
 import com.lara.scd.doctor.domain.model.Doctor;
 import com.lara.scd.manager.domain.model.Manager;
-import com.lara.scd.user.domain.repository.IUserRepository;
+import com.lara.scd.user.domain.repository.UserRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -18,7 +18,7 @@ public class ScdApplication {
 	}
     @Bean
     @Profile("prod")
-    public CommandLineRunner devProfile(IUserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public CommandLineRunner devProfile(UserRepository userRepository, PasswordEncoder passwordEncoder) {
         return args -> {
             if (userRepository.findByEmail("doctor@example.com").isEmpty()) {
                 Doctor doctor = new Doctor("Dr. João Silva", "12345678901", "doctor@example.com", passwordEncoder.encode("password123"), "CRM12345");

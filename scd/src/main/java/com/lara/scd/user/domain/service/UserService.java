@@ -4,7 +4,7 @@ import com.lara.scd.config.security.JwtUtil;
 import com.lara.scd.user.application.dto.LoginRequestDto;
 import com.lara.scd.user.application.dto.LoginResponseDto;
 import com.lara.scd.user.domain.model.User;
-import com.lara.scd.user.domain.repository.IUserRepository;
+import com.lara.scd.user.domain.repository.UserRepository;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.AuthenticationException;
@@ -15,9 +15,9 @@ public class UserService {
 
     private final AuthenticationManager authenticationManager;
     private final JwtUtil jwtUtil;
-    private final IUserRepository userRepository;
+    private final UserRepository userRepository;
 
-    public UserService(AuthenticationManager authenticationManager, JwtUtil jwtUtil, IUserRepository userRepository) {
+    public UserService(AuthenticationManager authenticationManager, JwtUtil jwtUtil, UserRepository userRepository) {
         this.authenticationManager = authenticationManager;
         this.jwtUtil = jwtUtil;
         this.userRepository = userRepository;

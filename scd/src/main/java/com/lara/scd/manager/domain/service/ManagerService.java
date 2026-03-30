@@ -1,22 +1,22 @@
 package com.lara.scd.manager.domain.service;
 
 import com.lara.scd.config.security.SecurityContext;
-import com.lara.scd.doctor.domain.repository.IDoctorRepository;
-import com.lara.scd.lesion.domain.repository.ILesionRepository;
+import com.lara.scd.doctor.domain.repository.DoctorRepository;
+import com.lara.scd.lesion.domain.repository.LesionRepository;
 import com.lara.scd.manager.application.dto.ChangePasswordRequest;
 import com.lara.scd.manager.application.dto.DashboardResponseDto;
 import com.lara.scd.manager.application.dto.ManagerRegisterRequestDto;
 import com.lara.scd.exception.UnicidadeVioladaException;
 import com.lara.scd.manager.domain.model.Manager;
-import com.lara.scd.manager.domain.repository.IManagerRepository;
+import com.lara.scd.manager.domain.repository.ManagerRepository;
 import com.lara.scd.patient.domain.model.PatientImage;
-import com.lara.scd.patient.domain.repository.IPatientImageRepository;
-import com.lara.scd.patient.domain.repository.IPatientRepository;
+import com.lara.scd.patient.domain.repository.PatientImageRepository;
+import com.lara.scd.patient.domain.repository.PatientRepository;
 import com.lara.scd.predict.domain.model.AiPrediction;
-import com.lara.scd.predict.domain.repository.IAiPredictionRepository;
+import com.lara.scd.predict.domain.repository.AiPredictionRepository;
 import com.lara.scd.shared.service.FileStorageService;
 import com.lara.scd.user.domain.model.User;
-import com.lara.scd.user.domain.repository.IUserRepository;
+import com.lara.scd.user.domain.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,26 +33,26 @@ import java.util.zip.ZipOutputStream;
 @Service
 public class ManagerService {
 
-    private final IManagerRepository managerRepository;
+    private final ManagerRepository managerRepository;
     private final PasswordEncoder passwordEncoder;
-    private final IPatientRepository patientRepository;
-    private final IDoctorRepository doctorRepository;
-    private final IPatientImageRepository imageRepository;
-    private final IAiPredictionRepository aiPredictionRepository;
-    private final ILesionRepository lesionRepository;
+    private final PatientRepository patientRepository;
+    private final DoctorRepository doctorRepository;
+    private final PatientImageRepository imageRepository;
+    private final AiPredictionRepository aiPredictionRepository;
+    private final LesionRepository lesionRepository;
     private final FileStorageService fileStorageService;
     private final SecurityContext securityContext;
-    private final IUserRepository userRepository;
+    private final UserRepository userRepository;
 
-    public ManagerService(IManagerRepository managerRepository, PasswordEncoder passwordEncoder,
-                          IPatientRepository patientRepository,
-                          IDoctorRepository doctorRepository,
-                          IPatientImageRepository imageRepository,
-                          IAiPredictionRepository aiPredictionRepository,
-                          ILesionRepository lesionRepository,
+    public ManagerService(ManagerRepository managerRepository, PasswordEncoder passwordEncoder,
+                          PatientRepository patientRepository,
+                          DoctorRepository doctorRepository,
+                          PatientImageRepository imageRepository,
+                          AiPredictionRepository aiPredictionRepository,
+                          LesionRepository lesionRepository,
                           FileStorageService fileStorageService,
                           SecurityContext securityContext,
-                          IUserRepository userRepository) {
+                          UserRepository userRepository) {
         this.managerRepository = managerRepository;
         this.passwordEncoder = passwordEncoder;
         this.patientRepository = patientRepository;

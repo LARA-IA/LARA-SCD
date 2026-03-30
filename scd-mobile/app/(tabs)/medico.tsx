@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { Toast, useToast } from '../../components/Toast';
 import {
     consultationService,
     ConsultationResponse,
@@ -73,6 +74,8 @@ export default function MedicoDashboardScreen() {
     const [loading, setLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState('');
+    const { toast, showToast, hideToast } = useToast();
+    const [allPatients, setAllPatients] = useState<PatientResponse[]>([]);
 
     // Filters
     const [filterNome, setFilterNome] = useState('');
@@ -118,20 +121,35 @@ export default function MedicoDashboardScreen() {
     const [selectedPatient, setSelectedPatient] = useState<GroupedPatient | null>(null);
 
     const groupedPatients: GroupedPatient[] = useMemo(() => {
+        // Start with consultation-grouped patients
+        const map = new Map<string, GroupedPatient>();
+
         const filtered = consultations.filter(c => {
             const matchNome = !filterNome || c.patient.nome.toLowerCase().includes(filterNome.toLowerCase());
             const matchCpf = !filterCpf || c.patient.cpf.includes(filterCpf);
             return matchNome && matchCpf;
         });
-        const map = new Map<string, GroupedPatient>();
         for (const c of filtered) {
             if (!map.has(c.patient.id)) {
                 map.set(c.patient.id, { patient: c.patient, consultations: [] });
             }
             map.get(c.patient.id)!.consultations.push(c);
         }
+
+        // Merge standalone patients (those without consultations)
+        for (const p of allPatients) {
+            const matchNome = !filterNome || p.nome.toLowerCase().includes(filterNome.toLowerCase());
+            const matchCpf = !filterCpf || p.cpf.includes(filterCpf);
+            if (matchNome && matchCpf && !map.has(p.id)) {
+                map.set(p.id, {
+                    patient: { id: p.id, nome: p.nome, cpf: p.cpf, sexo: p.sexo, dataNascimento: p.dataNascimento },
+                    consultations: [],
+                });
+            }
+        }
+
         return Array.from(map.values());
-    }, [consultations, filterNome, filterCpf]);
+    }, [consultations, allPatients, filterNome, filterCpf]);
 
     const localizacaoList = LocalizacaoOptions;
 
@@ -139,10 +157,14 @@ export default function MedicoDashboardScreen() {
     const loadConsultations = useCallback(async (nome?: string, cpf?: string) => {
         try {
             setLoading(true);
-            const data = await consultationService.listConsultations(nome, cpf);
+            const [data, patients] = await Promise.all([
+                consultationService.listConsultations(nome, cpf),
+                patientService.listPatients(),
+            ]);
             setConsultations(data);
+            setAllPatients(patients);
         } catch (err: any) {
-            setError('Erro ao carregar consultas');
+            setError('Erro ao carregar dados');
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -226,7 +248,7 @@ export default function MedicoDashboardScreen() {
     // ==================== Patient Registration ====================
     const handleRegisterPatient = async () => {
         if (!patientData.nome || !patientData.cpf) {
-            setError('Nome e CPF do paciente são obrigatórios');
+            showToast('warning', 'Campos obrigatórios', 'Nome e CPF do paciente são obrigatórios');
             return;
         }
         setError('');
@@ -241,10 +263,15 @@ export default function MedicoDashboardScreen() {
             });
             setPatientModalOpen(false);
             setPatientData({ nome: '', cpf: '', dataNascimento: '', sexo: 'M', termoConsentimentoIa: false });
-            Alert.alert('Sucesso', 'Paciente cadastrado com sucesso!');
+            showToast('success', 'Paciente cadastrado!', `${patientData.nome} foi registrado com sucesso.`);
             loadConsultations();
         } catch (err: any) {
-            setError(err.response?.data?.message || err.response?.data?.error || 'Erro ao cadastrar paciente');
+            const msg = err.response?.data?.message || err.response?.data?.error || 'Erro ao cadastrar paciente';
+            if (err.response?.status === 409) {
+                showToast('warning', 'CPF já cadastrado', msg.replace(/.*CONFLICT\s*"?/, '').replace(/"$/, ''));
+            } else {
+                showToast('error', 'Erro no cadastro', msg);
+            }
         } finally {
             setRegisteringPatient(false);
         }
@@ -253,7 +280,7 @@ export default function MedicoDashboardScreen() {
     // ==================== CPF Search for Consultation ====================
     const handleSearchCpf = async () => {
         if (!cpfSearch.trim()) {
-            setError('Informe o CPF do paciente');
+            showToast('warning', 'CPF obrigatório', 'Informe o CPF do paciente');
             return;
         }
         setError('');
@@ -262,12 +289,17 @@ export default function MedicoDashboardScreen() {
             const patient = await patientService.searchByCpf(cpfSearch.trim());
             if (patient) {
                 setSelectedPatientForConsultation(patient);
+                showToast('success', 'Paciente encontrado', patient.nome);
             } else {
-                setError('Paciente não encontrado. Cadastre o paciente primeiro.');
+                showToast('info', 'Não encontrado', 'Paciente não encontrado. Cadastre primeiro.');
                 setSelectedPatientForConsultation(null);
             }
         } catch (err: any) {
-            setError('Erro ao buscar paciente');
+            if (err.response?.status === 404) {
+                showToast('info', 'Não encontrado', 'Paciente não encontrado. Cadastre primeiro.');
+            } else {
+                showToast('error', 'Erro na busca', 'Não foi possível buscar o paciente');
+            }
             setSelectedPatientForConsultation(null);
         } finally {
             setSearchingCpf(false);
@@ -277,20 +309,20 @@ export default function MedicoDashboardScreen() {
     // ==================== New Consultation ====================
     const handleCreateConsultation = async () => {
         if (!selectedPatientForConsultation) {
-            setError('Selecione um paciente primeiro');
+            showToast('warning', 'Paciente obrigatório', 'Selecione um paciente primeiro');
             return;
         }
         if (images.length === 0) {
-            setError('Selecione pelo menos uma imagem');
+            showToast('warning', 'Imagem obrigatória', 'Selecione pelo menos uma imagem');
             return;
         }
         if (images.length > 20) {
-            setError('Máximo de 20 imagens por consulta');
+            showToast('warning', 'Limite excedido', 'Máximo de 20 imagens por consulta');
             return;
         }
         const allLocsFilled = imageLocalizacoes.length === images.length && imageLocalizacoes.every(l => !!l);
         if (!allLocsFilled) {
-            setError('Informe a localização de cada imagem');
+            showToast('warning', 'Localização pendente', 'Informe a localização de cada imagem');
             return;
         }
 
@@ -306,8 +338,9 @@ export default function MedicoDashboardScreen() {
             setConsultations(prev => [newConsultation, ...prev]);
             setNewConsultationOpen(false);
             resetNewConsultationForm();
+            showToast('success', 'Consulta criada!', `${images.length} imagem(ns) enviada(s) para análise.`);
         } catch (err: any) {
-            setError(err.response?.data?.error || err.response?.data?.detail || 'Erro ao criar consulta');
+            showToast('error', 'Erro ao criar consulta', err.response?.data?.error || err.response?.data?.detail || 'Tente novamente');
         } finally {
             setUploading(false);
         }
@@ -355,24 +388,46 @@ export default function MedicoDashboardScreen() {
         try {
             const updatedConsultation = await consultationService.confirmImageDiagnosis(imageId, verdict);
             setSelectedConsultation(updatedConsultation);
-            // Update in the list too
             setConsultations(prev =>
                 prev.map(c => c.id === updatedConsultation.id ? updatedConsultation : c)
             );
             setVerdictPickerImageId(null);
+            showToast('success', 'Diagnóstico confirmado!', `Veredito: ${DoctorVerdictLabels[verdict]}`);
         } catch (err: any) {
-            setError(err.response?.data?.error || 'Erro ao confirmar diagnóstico');
+            showToast('error', 'Erro ao confirmar', err.response?.data?.error || 'Tente novamente');
         }
     };
 
     // ==================== Patient Row ====================
     const renderPatientItem = ({ item }: { item: GroupedPatient }) => {
+        const hasConsultations = item.consultations.length > 0;
+
+        const handleNovaConsulta = (e: any) => {
+            e.stopPropagation();
+            setSelectedPatientForConsultation({
+                id: item.patient.id,
+                nome: item.patient.nome,
+                cpf: item.patient.cpf,
+                sexo: item.patient.sexo,
+                dataNascimento: item.patient.dataNascimento,
+            });
+            setCpfSearch(item.patient.cpf);
+            setImages([]);
+            setImageLocalizacoes([]);
+            setIsExistingPatient(true);
+            setNewConsultationOpen(true);
+        };
+
         return (
             <TouchableOpacity
                 style={styles.consultationCard}
                 onPress={() => {
-                    setSelectedPatient(item);
-                    setPatientConsultationsModalOpen(true);
+                    if (hasConsultations) {
+                        setSelectedPatient(item);
+                        setPatientConsultationsModalOpen(true);
+                    } else {
+                        handleNovaConsulta({ stopPropagation: () => {} });
+                    }
                 }}
                 activeOpacity={0.7}
             >
@@ -381,9 +436,11 @@ export default function MedicoDashboardScreen() {
                         <Text style={styles.patientName}>{item.patient.nome}</Text>
                         <Text style={styles.patientCpf}>CPF: {item.patient.cpf}</Text>
                     </View>
-                    <View style={[styles.statusBadge, { backgroundColor: '#3b82f625' }]}>
-                        <View style={[styles.statusDot, { backgroundColor: '#3b82f6' }]} />
-                        <Text style={[styles.statusText, { color: '#3b82f6' }]}>{item.consultations.length} consulta(s)</Text>
+                    <View style={[styles.statusBadge, { backgroundColor: hasConsultations ? '#3b82f625' : '#8b5cf625' }]}>
+                        <View style={[styles.statusDot, { backgroundColor: hasConsultations ? '#3b82f6' : '#8b5cf6' }]} />
+                        <Text style={[styles.statusText, { color: hasConsultations ? '#3b82f6' : '#8b5cf6' }]}>
+                            {hasConsultations ? `${item.consultations.length} consulta(s)` : 'Novo'}
+                        </Text>
                     </View>
                 </View>
 
@@ -391,7 +448,7 @@ export default function MedicoDashboardScreen() {
                     <View style={{ flex: 1 }} />
                     <TouchableOpacity
                         style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(6, 182, 212, 0.15)', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}
-                        onPress={(e) => { e.stopPropagation(); startNewConsultationForPatient(item.consultations[0]); }}
+                        onPress={handleNovaConsulta}
                         activeOpacity={0.7}
                     >
                         <Ionicons name="add-circle-outline" size={14} color="#06b6d4" />
@@ -442,6 +499,14 @@ export default function MedicoDashboardScreen() {
     // ==================== RENDER ====================
     return (
         <View style={styles.container}>
+            {/* Toast Overlay */}
+            <Toast
+                visible={toast.visible}
+                type={toast.type}
+                title={toast.title}
+                message={toast.message}
+                onHide={hideToast}
+            />
             {/* Header */}
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>Meus Pacientes</Text>

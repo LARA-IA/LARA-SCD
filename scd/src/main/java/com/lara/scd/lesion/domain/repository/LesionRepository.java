@@ -10,7 +10,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface ILesionRepository extends JpaRepository<Lesion, UUID> {
+public interface LesionRepository extends JpaRepository<Lesion, UUID> {
 
     List<Lesion> findByPatientId(UUID patientId);
 

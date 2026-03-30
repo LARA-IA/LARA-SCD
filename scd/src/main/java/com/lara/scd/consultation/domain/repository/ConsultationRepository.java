@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Repository
-public interface IConsultationRepository extends JpaRepository<Consultation, UUID> {
+public interface ConsultationRepository extends JpaRepository<Consultation, UUID> {
 
     List<Consultation> findByDoctorIdOrderByCreatedAtDesc(UUID doctorId);
 

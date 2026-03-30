@@ -7,7 +7,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface IDoctorRepository extends JpaRepository<Doctor, UUID> {
+public interface DoctorRepository extends JpaRepository<Doctor, UUID> {
 
 
     boolean existsByEmail(String email);

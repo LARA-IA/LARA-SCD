@@ -1,6 +1,8 @@
 package com.lara.scd.patient.application;
 
+import com.lara.scd.patient.application.dto.PatientImageResponseDto;
 import com.lara.scd.patient.application.dto.PatientRegisterRequestDto;
+import com.lara.scd.patient.application.dto.PatientResponseDto;
 import com.lara.scd.patient.domain.model.DoctorVerdict;
 import com.lara.scd.patient.domain.model.Patient;
 import com.lara.scd.patient.domain.model.PatientImage;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/patient")
@@ -35,35 +38,39 @@ public class PatientController {
             @ApiResponse(responseCode = "409", description = "CPF já cadastrado")
     })
     @PostMapping("/register")
-    public ResponseEntity<Patient> createPatient(@Validated @RequestBody PatientRegisterRequestDto dto) {
+    public ResponseEntity<PatientResponseDto> createPatient(@Validated @RequestBody PatientRegisterRequestDto dto) {
         Patient patient = patientService.registerPatient(dto);
-        return ResponseEntity.status(HttpStatus.CREATED).body(patient);
+        return ResponseEntity.status(HttpStatus.CREATED).body(PatientResponseDto.from(patient));
     }
 
     @Operation(summary = "Buscar paciente por CPF", description = "Retorna o paciente com o CPF informado")
     @GetMapping("/search")
-    public ResponseEntity<Patient> searchByCpf(@RequestParam String cpf) {
+    public ResponseEntity<PatientResponseDto> searchByCpf(@RequestParam String cpf) {
         return patientService.findByCpf(cpf)
-                .map(ResponseEntity::ok)
+                .map(p -> ResponseEntity.ok(PatientResponseDto.from(p)))
                 .orElse(ResponseEntity.notFound().build());
     }
 
     @Operation(summary = "Buscar paciente por ID", description = "Retorna o paciente com o ID informado")
     @GetMapping("/{id}")
-    public ResponseEntity<Patient> getPatient(@PathVariable UUID id) {
-        return ResponseEntity.ok(patientService.findById(id));
+    public ResponseEntity<PatientResponseDto> getPatient(@PathVariable UUID id) {
+        return ResponseEntity.ok(PatientResponseDto.from(patientService.findById(id)));
     }
 
     @Operation(summary = "Listar pacientes do médico", description = "Retorna todos os pacientes vinculados ao médico logado")
     @GetMapping
-    public ResponseEntity<List<Patient>> listPatients() {
-        return ResponseEntity.ok(patientService.listByDoctorId());
+    public ResponseEntity<List<PatientResponseDto>> listPatients() {
+        List<PatientResponseDto> dtos = patientService.listByDoctorId().stream()
+                .map(PatientResponseDto::from)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(dtos);
     }
 
     @PutMapping("/images/{imageId}/confirm")
-    public ResponseEntity<PatientImage> confirmDiagnosis(
+    public ResponseEntity<PatientImageResponseDto> confirmDiagnosis(
             @PathVariable UUID imageId,
             @RequestBody DoctorVerdict verdict) {
-        return ResponseEntity.ok(patientService.confirmDiagnosis(imageId, verdict));
+        PatientImage image = patientService.confirmDiagnosis(imageId, verdict);
+        return ResponseEntity.ok(PatientImageResponseDto.from(image));
     }
 }

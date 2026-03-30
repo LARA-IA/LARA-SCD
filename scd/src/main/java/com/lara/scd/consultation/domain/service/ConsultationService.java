@@ -5,25 +5,25 @@ import com.lara.scd.consultation.application.dto.ConfirmDiagnosisRequest;
 import com.lara.scd.consultation.application.dto.ConsultationRequest;
 import com.lara.scd.consultation.application.dto.ConsultationResponse;
 import com.lara.scd.consultation.domain.model.Consultation;
-import com.lara.scd.consultation.domain.repository.IConsultationRepository;
+import com.lara.scd.consultation.domain.repository.ConsultationRepository;
 import com.lara.scd.doctor.domain.model.Doctor;
-import com.lara.scd.doctor.domain.repository.IDoctorRepository;
+import com.lara.scd.doctor.domain.repository.DoctorRepository;
 import com.lara.scd.lesion.domain.model.Lesion;
-import com.lara.scd.lesion.domain.repository.ILesionRepository;
+import com.lara.scd.lesion.domain.repository.LesionRepository;
 import com.lara.scd.patient.domain.model.AiProcessingStatus;
 import com.lara.scd.patient.domain.model.Localizacao;
 import com.lara.scd.patient.domain.model.Patient;
 import com.lara.scd.patient.domain.model.PatientImage;
-import com.lara.scd.patient.domain.repository.IPatientImageRepository;
-import com.lara.scd.patient.domain.repository.IPatientRepository;
+import com.lara.scd.patient.domain.repository.PatientImageRepository;
+import com.lara.scd.patient.domain.repository.PatientRepository;
 import com.lara.scd.predict.application.dto.AiPredictionResponse;
 import com.lara.scd.predict.domain.model.AiPrediction;
-import com.lara.scd.predict.domain.repository.IAiPredictionRepository;
+import com.lara.scd.predict.domain.repository.AiPredictionRepository;
 import com.lara.scd.predict.domain.service.PredictService;
 import com.lara.scd.shared.service.FileStorageService;
 import com.lara.scd.user.domain.model.AccessLevel;
 import com.lara.scd.user.domain.model.User;
-import com.lara.scd.user.domain.repository.IUserRepository;
+import com.lara.scd.user.domain.repository.UserRepository;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -42,27 +42,27 @@ public class ConsultationService {
 
     private static final String AI_MODEL_VERSION = "YOLOv8_simulated_v1.0";
 
-    private final IConsultationRepository consultationRepository;
-    private final IPatientRepository patientRepository;
-    private final IPatientImageRepository imageRepository;
-    private final IDoctorRepository doctorRepository;
-    private final IUserRepository userRepository;
+    private final ConsultationRepository consultationRepository;
+    private final PatientRepository patientRepository;
+    private final PatientImageRepository imageRepository;
+    private final DoctorRepository doctorRepository;
+    private final UserRepository userRepository;
     private final PredictService predictService;
     private final FileStorageService fileStorageService;
     private final SecurityContext securityContext;
-    private final ILesionRepository lesionRepository;
-    private final IAiPredictionRepository aiPredictionRepository;
+    private final LesionRepository lesionRepository;
+    private final AiPredictionRepository aiPredictionRepository;
 
-    public ConsultationService(IConsultationRepository consultationRepository,
-                               IPatientRepository patientRepository,
-                               IPatientImageRepository imageRepository,
-                               IDoctorRepository doctorRepository,
-                               IUserRepository userRepository,
+    public ConsultationService(ConsultationRepository consultationRepository,
+                               PatientRepository patientRepository,
+                               PatientImageRepository imageRepository,
+                               DoctorRepository doctorRepository,
+                               UserRepository userRepository,
                                PredictService predictService,
                                FileStorageService fileStorageService,
                                SecurityContext securityContext,
-                               ILesionRepository lesionRepository,
-                               IAiPredictionRepository aiPredictionRepository) {
+                               LesionRepository lesionRepository,
+                               AiPredictionRepository aiPredictionRepository) {
         this.consultationRepository = consultationRepository;
         this.patientRepository = patientRepository;
         this.imageRepository = imageRepository;

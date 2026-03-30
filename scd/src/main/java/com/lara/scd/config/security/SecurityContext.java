@@ -1,7 +1,7 @@
 package com.lara.scd.config.security;
 
 import com.lara.scd.user.domain.model.User;
-import com.lara.scd.user.domain.repository.IUserRepository;
+import com.lara.scd.user.domain.repository.UserRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -13,9 +13,9 @@ import java.util.UUID;
 public class SecurityContext {
 
     private final JwtUtil jwtUtil;
-    private final IUserRepository userRepository;
+    private final UserRepository userRepository;
 
-    public SecurityContext(JwtUtil jwtUtil, IUserRepository userRepository) {
+    public SecurityContext(JwtUtil jwtUtil, UserRepository userRepository) {
         this.jwtUtil = jwtUtil;
         this.userRepository = userRepository;
     }
