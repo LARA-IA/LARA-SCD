@@ -10,6 +10,12 @@ public class AiPredictionResponse {
     @JsonProperty("predictions")
     private List<Prediction> predictions;
 
+    @JsonProperty("model_version")
+    private String modelVersion;
+
+    public String getModelVersion() { return modelVersion; }
+    public void setModelVersion(String modelVersion) { this.modelVersion = modelVersion; }
+
     @Data
     public static class Prediction {
         @JsonProperty("class")

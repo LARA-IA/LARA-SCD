@@ -20,6 +20,7 @@ import {
     consultationService,
     ConsultationResponse,
     ImageInfo,
+    AiPredictionInfo,
     DoctorVerdict,
     DoctorVerdictLabels,
     DoctorVerdictOptions,
@@ -27,6 +28,7 @@ import {
     LocalizacaoLabels,
     LocalizacaoOptions,
 } from '../../services/consultationService';
+import { patientService, PatientResponse } from '../../services/patientService';
 
 // Helper: get API base URL (mirrors api.ts)
 const getBaseUrl = () => {
@@ -62,6 +64,7 @@ interface PatientFormData {
     cpf: string;
     dataNascimento: string;
     sexo: 'M' | 'F';
+    termoConsentimentoIa: boolean;
 }
 
 export default function MedicoDashboardScreen() {
@@ -75,21 +78,28 @@ export default function MedicoDashboardScreen() {
     const [filterNome, setFilterNome] = useState('');
     const [filterCpf, setFilterCpf] = useState('');
 
-    // New consultation modal
-    const [newConsultationOpen, setNewConsultationOpen] = useState(false);
-    const [uploading, setUploading] = useState(false);
+    // Patient registration modal
+    const [patientModalOpen, setPatientModalOpen] = useState(false);
+    const [registeringPatient, setRegisteringPatient] = useState(false);
     const [patientData, setPatientData] = useState<PatientFormData>({
-        nome: '', cpf: '', dataNascimento: '', sexo: 'M',
+        nome: '', cpf: '', dataNascimento: '', sexo: 'M', termoConsentimentoIa: false,
     });
-    const [images, setImages] = useState<{ uri: string; name: string; type: string }[]>([]);
-    const [imageLocalizacoes, setImageLocalizacoes] = useState<string[]>([]);
-    const [isExistingPatient, setIsExistingPatient] = useState(false);
     const [showSexPicker, setShowSexPicker] = useState(false);
-    const [showLocPicker, setShowLocPicker] = useState(false);
-    const [locPickerIndex, setLocPickerIndex] = useState<number>(-1);
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [datePickerMonth, setDatePickerMonth] = useState(new Date().getMonth());
     const [datePickerYear, setDatePickerYear] = useState(new Date().getFullYear());
+
+    // New consultation modal
+    const [newConsultationOpen, setNewConsultationOpen] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    const [selectedPatientForConsultation, setSelectedPatientForConsultation] = useState<PatientResponse | null>(null);
+    const [cpfSearch, setCpfSearch] = useState('');
+    const [searchingCpf, setSearchingCpf] = useState(false);
+    const [images, setImages] = useState<{ uri: string; name: string; type: string }[]>([]);
+    const [imageLocalizacoes, setImageLocalizacoes] = useState<string[]>([]);
+    const [isExistingPatient, setIsExistingPatient] = useState(false);
+    const [showLocPicker, setShowLocPicker] = useState(false);
+    const [locPickerIndex, setLocPickerIndex] = useState<number>(-1);
 
     // Detail modal
     const [detailModalOpen, setDetailModalOpen] = useState(false);
@@ -213,9 +223,61 @@ export default function MedicoDashboardScreen() {
         setImageLocalizacoes(prev => prev.filter((_, i) => i !== index));
     };
 
-    const handleCreateConsultation = async () => {
+    // ==================== Patient Registration ====================
+    const handleRegisterPatient = async () => {
         if (!patientData.nome || !patientData.cpf) {
             setError('Nome e CPF do paciente são obrigatórios');
+            return;
+        }
+        setError('');
+        setRegisteringPatient(true);
+        try {
+            await patientService.registerPatient({
+                nome: patientData.nome,
+                cpf: patientData.cpf,
+                sexo: patientData.sexo,
+                dataNascimento: patientData.dataNascimento || undefined,
+                termoConsentimentoIa: patientData.termoConsentimentoIa,
+            });
+            setPatientModalOpen(false);
+            setPatientData({ nome: '', cpf: '', dataNascimento: '', sexo: 'M', termoConsentimentoIa: false });
+            Alert.alert('Sucesso', 'Paciente cadastrado com sucesso!');
+            loadConsultations();
+        } catch (err: any) {
+            setError(err.response?.data?.message || err.response?.data?.error || 'Erro ao cadastrar paciente');
+        } finally {
+            setRegisteringPatient(false);
+        }
+    };
+
+    // ==================== CPF Search for Consultation ====================
+    const handleSearchCpf = async () => {
+        if (!cpfSearch.trim()) {
+            setError('Informe o CPF do paciente');
+            return;
+        }
+        setError('');
+        setSearchingCpf(true);
+        try {
+            const patient = await patientService.searchByCpf(cpfSearch.trim());
+            if (patient) {
+                setSelectedPatientForConsultation(patient);
+            } else {
+                setError('Paciente não encontrado. Cadastre o paciente primeiro.');
+                setSelectedPatientForConsultation(null);
+            }
+        } catch (err: any) {
+            setError('Erro ao buscar paciente');
+            setSelectedPatientForConsultation(null);
+        } finally {
+            setSearchingCpf(false);
+        }
+    };
+
+    // ==================== New Consultation ====================
+    const handleCreateConsultation = async () => {
+        if (!selectedPatientForConsultation) {
+            setError('Selecione um paciente primeiro');
             return;
         }
         if (images.length === 0) {
@@ -237,10 +299,7 @@ export default function MedicoDashboardScreen() {
 
         try {
             const newConsultation = await consultationService.createConsultation({
-                nome: patientData.nome,
-                cpf: patientData.cpf,
-                sexo: patientData.sexo,
-                dataNascimento: patientData.dataNascimento || undefined,
+                patientId: selectedPatientForConsultation.id,
                 localizacoes: imageLocalizacoes,
                 images,
             });
@@ -255,7 +314,8 @@ export default function MedicoDashboardScreen() {
     };
 
     const resetNewConsultationForm = () => {
-        setPatientData({ nome: '', cpf: '', dataNascimento: '', sexo: 'M' });
+        setSelectedPatientForConsultation(null);
+        setCpfSearch('');
         setImages([]);
         setImageLocalizacoes([]);
         setIsExistingPatient(false);
@@ -263,12 +323,8 @@ export default function MedicoDashboardScreen() {
 
     const startNewConsultationForPatient = (consultation: ConsultationResponse) => {
         const p = consultation.patient;
-        setPatientData({
-            nome: p.nome,
-            cpf: p.cpf,
-            dataNascimento: p.dataNascimento || '',
-            sexo: (p.sexo as 'M' | 'F') || 'M',
-        });
+        setSelectedPatientForConsultation({ id: p.id, nome: p.nome, cpf: p.cpf, sexo: p.sexo, dataNascimento: p.dataNascimento });
+        setCpfSearch(p.cpf);
         setImages([]);
         setImageLocalizacoes([]);
         setIsExistingPatient(true);
@@ -388,15 +444,25 @@ export default function MedicoDashboardScreen() {
         <View style={styles.container}>
             {/* Header */}
             <View style={styles.header}>
-                <Text style={styles.headerTitle}>Minhas Consultas</Text>
-                <TouchableOpacity
-                    style={styles.newButton}
-                    onPress={() => setNewConsultationOpen(true)}
-                    activeOpacity={0.8}
-                >
-                    <Ionicons name="add" size={20} color="#fff" />
-                    <Text style={styles.newButtonText}>Nova Consulta</Text>
-                </TouchableOpacity>
+                <Text style={styles.headerTitle}>Meus Pacientes</Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <TouchableOpacity
+                        style={[styles.newButton, { backgroundColor: '#8b5cf6' }]}
+                        onPress={() => setPatientModalOpen(true)}
+                        activeOpacity={0.8}
+                    >
+                        <Ionicons name="person-add" size={18} color="#fff" />
+                        <Text style={styles.newButtonText}>Paciente</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={styles.newButton}
+                        onPress={() => setNewConsultationOpen(true)}
+                        activeOpacity={0.8}
+                    >
+                        <Ionicons name="add" size={20} color="#fff" />
+                        <Text style={styles.newButtonText}>Consulta</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
 
             {error ? (
@@ -497,86 +563,57 @@ export default function MedicoDashboardScreen() {
                     </View>
 
                     <ScrollView style={styles.modalBody} contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
-                        {/* Patient Data — only for NEW patients */}
-                        {isExistingPatient ? (
-                            <View style={[styles.formSection, { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 16, backgroundColor: 'rgba(6, 182, 212, 0.08)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(6, 182, 212, 0.2)' }]}>
-                                <Ionicons name="person-circle-outline" size={32} color="#06b6d4" />
-                                <View style={{ flex: 1 }}>
-                                    <Text style={{ color: '#f1f5f9', fontSize: 16, fontWeight: '700' }}>{patientData.nome}</Text>
-                                    <Text style={{ color: '#94a3b8', fontSize: 13, marginTop: 2 }}>CPF: {patientData.cpf}</Text>
-                                </View>
+                        {/* Patient Search by CPF */}
+                        <View style={styles.formSection}>
+                            <View style={styles.sectionHeader}>
+                                <Ionicons name="person-outline" size={20} color="#06b6d4" />
+                                <Text style={styles.sectionTitle}>Paciente</Text>
                             </View>
-                        ) : (
-                            <View style={styles.formSection}>
-                                <View style={styles.sectionHeader}>
-                                    <Ionicons name="person-outline" size={20} color="#06b6d4" />
-                                    <Text style={styles.sectionTitle}>Dados do Paciente</Text>
-                                </View>
 
-                                <View style={styles.inputGroup}>
-                                    <Text style={styles.label}>Nome Completo *</Text>
-                                    <View style={styles.inputContainer}>
-                                        <TextInput
-                                            style={styles.input}
-                                            placeholder="Nome do paciente"
-                                            placeholderTextColor="#64748b"
-                                            value={patientData.nome}
-                                            onChangeText={(v) => setPatientData({ ...patientData, nome: v })}
-                                        />
+                            {selectedPatientForConsultation ? (
+                                <View style={[styles.formSection, { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 16, backgroundColor: 'rgba(6, 182, 212, 0.08)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(6, 182, 212, 0.2)', marginTop: 0 }]}>
+                                    <Ionicons name="person-circle-outline" size={32} color="#06b6d4" />
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={{ color: '#f1f5f9', fontSize: 16, fontWeight: '700' }}>{selectedPatientForConsultation.nome}</Text>
+                                        <Text style={{ color: '#94a3b8', fontSize: 13, marginTop: 2 }}>CPF: {selectedPatientForConsultation.cpf}</Text>
                                     </View>
+                                    <TouchableOpacity onPress={() => { setSelectedPatientForConsultation(null); setCpfSearch(''); }}>
+                                        <Ionicons name="close-circle" size={24} color="#64748b" />
+                                    </TouchableOpacity>
                                 </View>
-
-                                <View style={styles.inputGroup}>
-                                    <Text style={styles.label}>CPF *</Text>
-                                    <View style={styles.inputContainer}>
-                                        <TextInput
-                                            style={styles.input}
-                                            placeholder="000.000.000-00"
-                                            placeholderTextColor="#64748b"
-                                            value={patientData.cpf}
-                                            onChangeText={(v) => setPatientData({ ...patientData, cpf: v })}
-                                            keyboardType="numeric"
-                                        />
-                                    </View>
-                                </View>
-
-                                <View style={styles.row}>
-                                    <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-                                        <Text style={styles.label}>Sexo *</Text>
+                            ) : (
+                                <View>
+                                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                                        <View style={[styles.inputContainer, { flex: 1 }]}>
+                                            <TextInput
+                                                style={styles.input}
+                                                placeholder="Buscar por CPF"
+                                                placeholderTextColor="#64748b"
+                                                value={cpfSearch}
+                                                onChangeText={setCpfSearch}
+                                                keyboardType="numeric"
+                                                onSubmitEditing={handleSearchCpf}
+                                            />
+                                        </View>
                                         <TouchableOpacity
-                                            style={styles.pickerButton}
-                                            onPress={() => setShowSexPicker(true)}
+                                            style={[styles.newButton, { height: 48, borderRadius: 14 }]}
+                                            onPress={handleSearchCpf}
+                                            disabled={searchingCpf}
+                                            activeOpacity={0.8}
                                         >
-                                            <Text style={styles.pickerButtonText}>
-                                                {patientData.sexo === 'M' ? 'Masculino' : 'Feminino'}
-                                            </Text>
-                                            <Ionicons name="chevron-down" size={18} color="#64748b" />
+                                            {searchingCpf ? (
+                                                <ActivityIndicator color="#fff" size="small" />
+                                            ) : (
+                                                <Ionicons name="search" size={20} color="#fff" />
+                                            )}
                                         </TouchableOpacity>
                                     </View>
-                                    <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-                                        <Text style={styles.label}>Data Nasc.</Text>
-                                        <TouchableOpacity
-                                            style={styles.pickerButton}
-                                            onPress={() => {
-                                                if (patientData.dataNascimento) {
-                                                    const parts = patientData.dataNascimento.split('-');
-                                                    setDatePickerYear(parseInt(parts[0]));
-                                                    setDatePickerMonth(parseInt(parts[1]) - 1);
-                                                }
-                                                setShowDatePicker(true);
-                                            }}
-                                        >
-                                            <Text style={[styles.pickerButtonText, !patientData.dataNascimento && { color: '#64748b' }]}>
-                                                {patientData.dataNascimento
-                                                    ? patientData.dataNascimento.split('-').reverse().join('/')
-                                                    : 'Selecionar'}
-                                            </Text>
-                                            <Ionicons name="calendar-outline" size={18} color="#64748b" />
-                                        </TouchableOpacity>
-                                    </View>
+                                    <Text style={{ color: '#64748b', fontSize: 12, marginTop: 6, marginLeft: 4 }}>
+                                        Dica: cadastre o paciente primeiro usando o botão roxo "Paciente"
+                                    </Text>
                                 </View>
-                            </View>
-                        )}
+                            )}
+                        </View>
 
                         {/* Images */}
                         <View style={styles.formSection}>
@@ -633,10 +670,10 @@ export default function MedicoDashboardScreen() {
                         <TouchableOpacity
                             style={[
                                 styles.createButton,
-                                (uploading || images.length === 0 || !patientData.nome || !patientData.cpf || imageLocalizacoes.length !== images.length || imageLocalizacoes.some(l => !l)) && styles.buttonDisabled,
+                                (uploading || images.length === 0 || !selectedPatientForConsultation || imageLocalizacoes.length !== images.length || imageLocalizacoes.some(l => !l)) && styles.buttonDisabled,
                             ]}
                             onPress={handleCreateConsultation}
-                            disabled={uploading || images.length === 0 || !patientData.nome || !patientData.cpf || imageLocalizacoes.length !== images.length || imageLocalizacoes.some(l => !l)}
+                            disabled={uploading || images.length === 0 || !selectedPatientForConsultation || imageLocalizacoes.length !== images.length || imageLocalizacoes.some(l => !l)}
                             activeOpacity={0.8}
                         >
                             {uploading ? (
@@ -761,33 +798,60 @@ export default function MedicoDashboardScreen() {
                                                 </View>
                                             )}
 
-                                            {/* AI Diagnosis */}
-                                            {(image.aiDiagnosis || image.multClass) && (
+                                            {/* AI Predictions */}
+                                            {image.predictions && image.predictions.length > 0 && (
                                                 <View style={styles.aiDiagnosisBox}>
                                                     <View style={styles.aiDiagnosisHeader}>
                                                         <Ionicons name="analytics" size={16} color="#38bdf8" />
-                                                        <Text style={styles.aiDiagnosisTitle}>Diagnóstico IA</Text>
+                                                        <Text style={styles.aiDiagnosisTitle}>Predições IA ({image.predictions.length})</Text>
                                                     </View>
-                                                    {image.aiDiagnosis && (
-                                                        <Text style={styles.aiDiagnosisText}>
-                                                            Classificação: <Text style={styles.aiDiagnosisValue}>{image.aiDiagnosis}</Text>
-                                                        </Text>
+                                                    {image.predictions.map((pred: AiPredictionInfo, predIdx: number) => (
+                                                        <View key={pred.id || predIdx} style={{ marginTop: predIdx > 0 ? 8 : 0 }}>
+                                                            {pred.versaoModelo && (
+                                                                <Text style={styles.aiDiagnosisText}>
+                                                                    Modelo: <Text style={styles.aiDiagnosisValue}>{pred.versaoModelo}</Text>
+                                                                </Text>
+                                                            )}
+                                                            {pred.classeInferida && (
+                                                                <Text style={styles.aiDiagnosisText}>
+                                                                    Classificação: <Text style={styles.aiDiagnosisValue}>{pred.classeInferida}</Text>
+                                                                </Text>
+                                                            )}
+                                                            {pred.confianca != null && (
+                                                                <Text style={styles.aiDiagnosisText}>
+                                                                    Confiança: <Text style={styles.aiDiagnosisValue}>{(pred.confianca * 100).toFixed(1)}%</Text>
+                                                                </Text>
+                                                            )}
+                                                            {pred.multClasse && (
+                                                                <Text style={styles.aiDiagnosisText}>
+                                                                    Sub-classe: <Text style={styles.aiDiagnosisValue}>{pred.multClasse}</Text>
+                                                                </Text>
+                                                            )}
+                                                            {pred.confiancaMultClasse != null && (
+                                                                <Text style={styles.aiDiagnosisText}>
+                                                                    Confiança Sub-classe: <Text style={styles.aiDiagnosisValue}>{(pred.confiancaMultClasse * 100).toFixed(1)}%</Text>
+                                                                </Text>
+                                                            )}
+                                                        </View>
+                                                    ))}
+                                                    {image.concordanciaIa != null && (
+                                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 }}>
+                                                            <Ionicons name={image.concordanciaIa ? 'checkmark-circle' : 'close-circle'} size={14} color={image.concordanciaIa ? '#22c55e' : '#ef4444'} />
+                                                            <Text style={{ color: image.concordanciaIa ? '#22c55e' : '#ef4444', fontSize: 12, fontWeight: '600' }}>
+                                                                {image.concordanciaIa ? 'Concordou com a IA' : 'Discordou da IA'}
+                                                            </Text>
+                                                        </View>
                                                     )}
-                                                    {image.confidence != null && (
-                                                        <Text style={styles.aiDiagnosisText}>
-                                                            Confiança: <Text style={styles.aiDiagnosisValue}>{(image.confidence * 100).toFixed(1)}%</Text>
-                                                        </Text>
-                                                    )}
-                                                    {image.multClass && (
-                                                        <Text style={styles.aiDiagnosisText}>
-                                                            Sub-classe: <Text style={styles.aiDiagnosisValue}>{image.multClass}</Text>
-                                                        </Text>
-                                                    )}
-                                                    {image.multClassConfidence != null && (
-                                                        <Text style={styles.aiDiagnosisText}>
-                                                            Confiança Sub-classe: <Text style={styles.aiDiagnosisValue}>{(image.multClassConfidence * 100).toFixed(1)}%</Text>
-                                                        </Text>
-                                                    )}
+                                                </View>
+                                            )}
+
+                                            {/* Status de processamento */}
+                                            {image.statusProcessamentoIa && image.statusProcessamentoIa !== 'CONCLUIDO' && (
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8, backgroundColor: image.statusProcessamentoIa === 'PENDENTE' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(239, 68, 68, 0.1)', borderRadius: 8, padding: 8 }}>
+                                                    <Ionicons name={image.statusProcessamentoIa === 'PENDENTE' ? 'time-outline' : 'alert-circle-outline'} size={14} color={image.statusProcessamentoIa === 'PENDENTE' ? '#f59e0b' : '#ef4444'} />
+                                                    <Text style={{ color: image.statusProcessamentoIa === 'PENDENTE' ? '#f59e0b' : '#ef4444', fontSize: 12, fontWeight: '600' }}>
+                                                        {image.statusProcessamentoIa === 'PENDENTE' ? 'Processamento IA pendente' : 'Falha no processamento IA'}
+                                                    </Text>
                                                 </View>
                                             )}
 
@@ -833,6 +897,123 @@ export default function MedicoDashboardScreen() {
                             )}
                         </ScrollView>
                     )}
+                </View>
+            </Modal>
+
+            {/* ==================== PATIENT REGISTRATION MODAL ==================== */}
+            <Modal visible={patientModalOpen} animationType="slide" presentationStyle="pageSheet">
+                <View style={styles.modalContainer}>
+                    <View style={styles.modalHeader}>
+                        <Text style={styles.modalHeaderTitle}>Cadastrar Paciente</Text>
+                        <TouchableOpacity onPress={() => { setPatientModalOpen(false); setPatientData({ nome: '', cpf: '', dataNascimento: '', sexo: 'M', termoConsentimentoIa: false }); }}>
+                            <Ionicons name="close" size={24} color="#94a3b8" />
+                        </TouchableOpacity>
+                    </View>
+
+                    <ScrollView style={styles.modalBody} contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+                        <View style={styles.formSection}>
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.label}>Nome Completo *</Text>
+                                <View style={styles.inputContainer}>
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="Nome do paciente"
+                                        placeholderTextColor="#64748b"
+                                        value={patientData.nome}
+                                        onChangeText={(v) => setPatientData({ ...patientData, nome: v })}
+                                    />
+                                </View>
+                            </View>
+
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.label}>CPF *</Text>
+                                <View style={styles.inputContainer}>
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="000.000.000-00"
+                                        placeholderTextColor="#64748b"
+                                        value={patientData.cpf}
+                                        onChangeText={(v) => setPatientData({ ...patientData, cpf: v })}
+                                        keyboardType="numeric"
+                                    />
+                                </View>
+                            </View>
+
+                            <View style={styles.row}>
+                                <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+                                    <Text style={styles.label}>Sexo *</Text>
+                                    <TouchableOpacity
+                                        style={styles.pickerButton}
+                                        onPress={() => setShowSexPicker(true)}
+                                    >
+                                        <Text style={styles.pickerButtonText}>
+                                            {patientData.sexo === 'M' ? 'Masculino' : 'Feminino'}
+                                        </Text>
+                                        <Ionicons name="chevron-down" size={18} color="#64748b" />
+                                    </TouchableOpacity>
+                                </View>
+                                <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+                                    <Text style={styles.label}>Data Nasc.</Text>
+                                    <TouchableOpacity
+                                        style={styles.pickerButton}
+                                        onPress={() => {
+                                            if (patientData.dataNascimento) {
+                                                const parts = patientData.dataNascimento.split('-');
+                                                setDatePickerYear(parseInt(parts[0]));
+                                                setDatePickerMonth(parseInt(parts[1]) - 1);
+                                            }
+                                            setShowDatePicker(true);
+                                        }}
+                                    >
+                                        <Text style={[styles.pickerButtonText, !patientData.dataNascimento && { color: '#64748b' }]}>
+                                            {patientData.dataNascimento
+                                                ? patientData.dataNascimento.split('-').reverse().join('/')
+                                                : 'Selecionar'}
+                                        </Text>
+                                        <Ionicons name="calendar-outline" size={18} color="#64748b" />
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+
+                            {/* LGPD Consent */}
+                            <View style={styles.inputGroup}>
+                                <TouchableOpacity
+                                    style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#1e293b', borderRadius: 14, borderWidth: 1, borderColor: '#334155', padding: 14 }}
+                                    onPress={() => setPatientData({ ...patientData, termoConsentimentoIa: !patientData.termoConsentimentoIa })}
+                                >
+                                    <Ionicons
+                                        name={patientData.termoConsentimentoIa ? 'checkbox' : 'square-outline'}
+                                        size={24}
+                                        color={patientData.termoConsentimentoIa ? '#06b6d4' : '#64748b'}
+                                    />
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={{ color: '#f1f5f9', fontSize: 14, fontWeight: '600' }}>Consentimento LGPD</Text>
+                                        <Text style={{ color: '#64748b', fontSize: 12, marginTop: 2 }}>Autoriza uso dos dados para treino de modelos de IA</Text>
+                                    </View>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+
+                        <TouchableOpacity
+                            style={[
+                                styles.createButton,
+                                { backgroundColor: '#8b5cf6', shadowColor: '#8b5cf6' },
+                                (registeringPatient || !patientData.nome || !patientData.cpf) && styles.buttonDisabled,
+                            ]}
+                            onPress={handleRegisterPatient}
+                            disabled={registeringPatient || !patientData.nome || !patientData.cpf}
+                            activeOpacity={0.8}
+                        >
+                            {registeringPatient ? (
+                                <ActivityIndicator color="#fff" size="small" />
+                            ) : (
+                                <>
+                                    <Ionicons name="person-add" size={20} color="#fff" />
+                                    <Text style={styles.createButtonText}>Cadastrar Paciente</Text>
+                                </>
+                            )}
+                        </TouchableOpacity>
+                    </ScrollView>
                 </View>
             </Modal>
 

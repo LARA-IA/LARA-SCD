@@ -2,7 +2,9 @@ package com.lara.scd.manager.domain.service;
 
 import com.lara.scd.config.security.SecurityContext;
 import com.lara.scd.doctor.domain.repository.IDoctorRepository;
+import com.lara.scd.lesion.domain.repository.ILesionRepository;
 import com.lara.scd.manager.application.dto.ChangePasswordRequest;
+import com.lara.scd.manager.application.dto.DashboardResponseDto;
 import com.lara.scd.manager.application.dto.ManagerRegisterRequestDto;
 import com.lara.scd.exception.UnicidadeVioladaException;
 import com.lara.scd.manager.domain.model.Manager;
@@ -10,6 +12,8 @@ import com.lara.scd.manager.domain.repository.IManagerRepository;
 import com.lara.scd.patient.domain.model.PatientImage;
 import com.lara.scd.patient.domain.repository.IPatientImageRepository;
 import com.lara.scd.patient.domain.repository.IPatientRepository;
+import com.lara.scd.predict.domain.model.AiPrediction;
+import com.lara.scd.predict.domain.repository.IAiPredictionRepository;
 import com.lara.scd.shared.service.FileStorageService;
 import com.lara.scd.user.domain.model.User;
 import com.lara.scd.user.domain.repository.IUserRepository;
@@ -34,15 +38,18 @@ public class ManagerService {
     private final IPatientRepository patientRepository;
     private final IDoctorRepository doctorRepository;
     private final IPatientImageRepository imageRepository;
+    private final IAiPredictionRepository aiPredictionRepository;
+    private final ILesionRepository lesionRepository;
     private final FileStorageService fileStorageService;
     private final SecurityContext securityContext;
     private final IUserRepository userRepository;
-
 
     public ManagerService(IManagerRepository managerRepository, PasswordEncoder passwordEncoder,
                           IPatientRepository patientRepository,
                           IDoctorRepository doctorRepository,
                           IPatientImageRepository imageRepository,
+                          IAiPredictionRepository aiPredictionRepository,
+                          ILesionRepository lesionRepository,
                           FileStorageService fileStorageService,
                           SecurityContext securityContext,
                           IUserRepository userRepository) {
@@ -51,6 +58,8 @@ public class ManagerService {
         this.patientRepository = patientRepository;
         this.doctorRepository = doctorRepository;
         this.imageRepository = imageRepository;
+        this.aiPredictionRepository = aiPredictionRepository;
+        this.lesionRepository = lesionRepository;
         this.fileStorageService = fileStorageService;
         this.securityContext = securityContext;
         this.userRepository = userRepository;
@@ -71,12 +80,14 @@ public class ManagerService {
         managerRepository.save(newManager);
     }
 
-    public com.lara.scd.manager.application.dto.DashboardResponseDto getDashboardStats() {
+    public DashboardResponseDto getDashboardStats() {
         long totalPatients = patientRepository.count();
         long totalDoctors = doctorRepository.count();
         long totalImages = imageRepository.count();
+        long totalPredictions = aiPredictionRepository.count();
+        long totalLesions = lesionRepository.count();
 
-        return new com.lara.scd.manager.application.dto.DashboardResponseDto(totalPatients, totalDoctors, totalImages);
+        return new DashboardResponseDto(totalPatients, totalDoctors, totalImages, totalPredictions, totalLesions);
     }
 
     @Transactional
@@ -106,8 +117,8 @@ public class ManagerService {
              ZipOutputStream zos = new ZipOutputStream(fos);
              PrintWriter csvWriter = new PrintWriter(new FileOutputStream(tempCsv))) {
 
-            // Cabeçalho do CSV
-            csvWriter.println("Image ID,Patient ID,AI Diagnosis,AI Confidence,Doctor Final Diagnosis");
+            // Cabeçalho do CSV atualizado com dados da AiPrediction
+            csvWriter.println("Image ID,Patient ID,Lesion ID,AI Class,AI Confidence,AI MultClass,AI MultClass Confidence,AI Model Version,Doctor Final Diagnosis,Concordancia IA");
 
             Path storageLocation = fileStorageService.getStorageLocation();
 
@@ -115,25 +126,44 @@ public class ManagerService {
                 // Resolver o caminho do arquivo
                 Path imagePath = storageLocation.resolve(image.getFilePath()).normalize();
                 if (!Files.exists(imagePath)) {
-                    // Tentar caminho absoluto
                     imagePath = Paths.get(image.getFilePath());
                     if (!Files.exists(imagePath)) {
-                        continue; // Pular se o arquivo não existir
+                        continue;
                     }
                 }
 
                 UUID patientId = image.getPatient() != null ? image.getPatient().getId() : null;
-                String aiDiagnosis = image.getAiDiagnosis();
-                Double confidence = image.getConfidence();
+                UUID lesionId = image.getLesion() != null ? image.getLesion().getId() : null;
                 String doctorVerdict = image.getDoctorVerdict() != null ? image.getDoctorVerdict().name() : "";
+                Boolean concordancia = image.getConcordanciaIa();
 
-                // Escrever linha no CSV
-                csvWriter.printf("%s,%s,%s,%s,%s%n",
+                // Fetch latest AI prediction for this image
+                List<AiPrediction> predictions = aiPredictionRepository.findByPatientImageIdOrderByCriadoEmDesc(image.getId());
+                String aiClass = "";
+                String aiConfidence = "";
+                String aiMultClass = "";
+                String aiMultClassConfidence = "";
+                String aiModelVersion = "";
+                if (!predictions.isEmpty()) {
+                    AiPrediction latest = predictions.get(0);
+                    aiClass = latest.getClasseInferida() != null ? latest.getClasseInferida() : "";
+                    aiConfidence = latest.getConfianca() != null ? String.format("%.4f", latest.getConfianca()) : "";
+                    aiMultClass = latest.getMultClasse() != null ? latest.getMultClasse() : "";
+                    aiMultClassConfidence = latest.getConfiancaMultClasse() != null ? String.format("%.4f", latest.getConfiancaMultClasse()) : "";
+                    aiModelVersion = latest.getVersaoModelo() != null ? latest.getVersaoModelo() : "";
+                }
+
+                csvWriter.printf("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s%n",
                         image.getId(),
                         patientId != null ? patientId : "",
-                        aiDiagnosis != null ? aiDiagnosis : "",
-                        confidence != null ? String.format("%.4f", confidence) : "",
-                        doctorVerdict);
+                        lesionId != null ? lesionId : "",
+                        aiClass,
+                        aiConfidence,
+                        aiMultClass,
+                        aiMultClassConfidence,
+                        aiModelVersion,
+                        doctorVerdict,
+                        concordancia != null ? concordancia : "");
 
                 // Obter extensão do arquivo original
                 String originalFileName = image.getFileName();
@@ -191,4 +221,3 @@ public class ManagerService {
         }
     }
 }
-

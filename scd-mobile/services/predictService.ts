@@ -3,8 +3,9 @@ import api from './api';
 export interface PatientRegisterRequest {
     nome: string;
     cpf: string;
-    dataNascimento?: string; // ISO date string, e.g. "2000-01-15"
+    dataNascimento?: string;
     sexo: string;
+    termoConsentimentoIa?: boolean;
 }
 
 export interface PatientImageResponse {
@@ -14,12 +15,19 @@ export interface PatientImageResponse {
     fileSize: number;
     contentType: string;
     localizacao: string;
-    aiDiagnosis?: string;
-    confidence?: number;
-    multClass?: string;
-    multClassConfidence?: number;
     doctorVerdict?: string;
     confirmed: boolean;
+    concordanciaIa?: boolean;
+    statusProcessamentoIa?: string;
+    predictions: {
+        id: string;
+        versaoModelo: string;
+        classeInferida?: string;
+        confianca?: number;
+        multClasse?: string;
+        confiancaMultClasse?: number;
+        criadoEm?: string;
+    }[];
 }
 
 export type DoctorVerdict =
@@ -45,39 +53,11 @@ export const DoctorVerdictOptions = Object.entries(DoctorVerdictLabels).map(([va
 }));
 
 /**
- * @deprecated Use consultationService instead for the new consultation-based flow.
+ * @deprecated Use patientService + consultationService instead for the new separated flow.
  */
 export const predictService = {
     registerPatient: async (data: PatientRegisterRequest): Promise<any> => {
         const response = await api.post('/patient/register', data);
-        return response.data;
-    },
-
-    classifyImage: async (
-        patientId: string,
-        imageUri: string,
-        imageName: string,
-        imageType: string,
-        localizacao: string
-    ): Promise<PatientImageResponse> => {
-        const formData = new FormData();
-        formData.append('file', {
-            uri: imageUri,
-            name: imageName,
-            type: imageType,
-        } as any);
-        formData.append('localizacao', localizacao);
-
-        const response = await api.post<PatientImageResponse>(
-            `/predict/classify/${patientId}`,
-            formData,
-            {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                },
-                timeout: 60000,
-            }
-        );
         return response.data;
     },
 
@@ -92,4 +72,3 @@ export const predictService = {
         return response.data;
     },
 };
-

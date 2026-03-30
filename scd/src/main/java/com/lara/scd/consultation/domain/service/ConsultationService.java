@@ -8,13 +8,17 @@ import com.lara.scd.consultation.domain.model.Consultation;
 import com.lara.scd.consultation.domain.repository.IConsultationRepository;
 import com.lara.scd.doctor.domain.model.Doctor;
 import com.lara.scd.doctor.domain.repository.IDoctorRepository;
-import com.lara.scd.patient.domain.model.DoctorVerdict;
+import com.lara.scd.lesion.domain.model.Lesion;
+import com.lara.scd.lesion.domain.repository.ILesionRepository;
+import com.lara.scd.patient.domain.model.AiProcessingStatus;
 import com.lara.scd.patient.domain.model.Localizacao;
 import com.lara.scd.patient.domain.model.Patient;
 import com.lara.scd.patient.domain.model.PatientImage;
 import com.lara.scd.patient.domain.repository.IPatientImageRepository;
 import com.lara.scd.patient.domain.repository.IPatientRepository;
 import com.lara.scd.predict.application.dto.AiPredictionResponse;
+import com.lara.scd.predict.domain.model.AiPrediction;
+import com.lara.scd.predict.domain.repository.IAiPredictionRepository;
 import com.lara.scd.predict.domain.service.PredictService;
 import com.lara.scd.shared.service.FileStorageService;
 import com.lara.scd.user.domain.model.AccessLevel;
@@ -36,6 +40,8 @@ import java.util.stream.Collectors;
 @Service
 public class ConsultationService {
 
+    private static final String AI_MODEL_VERSION = "YOLOv8_simulated_v1.0";
+
     private final IConsultationRepository consultationRepository;
     private final IPatientRepository patientRepository;
     private final IPatientImageRepository imageRepository;
@@ -44,6 +50,8 @@ public class ConsultationService {
     private final PredictService predictService;
     private final FileStorageService fileStorageService;
     private final SecurityContext securityContext;
+    private final ILesionRepository lesionRepository;
+    private final IAiPredictionRepository aiPredictionRepository;
 
     public ConsultationService(IConsultationRepository consultationRepository,
                                IPatientRepository patientRepository,
@@ -52,7 +60,9 @@ public class ConsultationService {
                                IUserRepository userRepository,
                                PredictService predictService,
                                FileStorageService fileStorageService,
-                               SecurityContext securityContext) {
+                               SecurityContext securityContext,
+                               ILesionRepository lesionRepository,
+                               IAiPredictionRepository aiPredictionRepository) {
         this.consultationRepository = consultationRepository;
         this.patientRepository = patientRepository;
         this.imageRepository = imageRepository;
@@ -61,6 +71,8 @@ public class ConsultationService {
         this.predictService = predictService;
         this.fileStorageService = fileStorageService;
         this.securityContext = securityContext;
+        this.lesionRepository = lesionRepository;
+        this.aiPredictionRepository = aiPredictionRepository;
     }
 
     @Transactional
@@ -70,18 +82,14 @@ public class ConsultationService {
         Doctor doctor = doctorRepository.findById(currentUser.getId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Usuário não é médico"));
 
-        // Find or create patient by CPF
-        Patient patient = patientRepository.findByCpf(request.getCpf())
-                .orElse(null);
+        // Find patient by ID — patient must be registered beforehand
+        Patient patient = patientRepository.findById(request.getPatientId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Paciente não encontrado. Cadastre o paciente antes de criar uma consulta."));
 
-        if (patient == null) {
-            patient = new Patient(request.getNome(), request.getCpf(), request.getDataNascimento(), request.getSexo());
-            patient = patientRepository.save(patient);
-        } else {
-            patient.setNome(request.getNome());
-            if (request.getDataNascimento() != null) {
-                patient.setDataNascimento(request.getDataNascimento());
-            }
+        // Link patient to doctor if not already linked
+        if (patient.getDoctor() == null) {
+            patient.setDoctor(doctor);
             patient = patientRepository.save(patient);
         }
 
@@ -125,6 +133,32 @@ public class ConsultationService {
             MultipartFile file = images.get(i);
             Localizacao localizacao = localizacoes.get(i);
 
+            // Find or create Lesion for this patient + location
+            Lesion lesion = lesionRepository.findByPatientIdAndLocalizacaoAnatomica(patient.getId(), localizacao)
+                    .orElse(null);
+            if (lesion == null) {
+                lesion = new Lesion(patient, localizacao, null);
+                lesion = lesionRepository.save(lesion);
+            }
+
+            // Save file to disk
+            String storedFileName = fileStorageService.storeFile(file);
+
+            // Save PatientImage with PENDENTE status
+            PatientImage imageEntity = new PatientImage();
+            imageEntity.setPatient(patient);
+            imageEntity.setConsultation(consultation);
+            imageEntity.setLesion(lesion);
+            imageEntity.setFileName(file.getOriginalFilename());
+            imageEntity.setFilePath(storedFileName);
+            imageEntity.setFileSize(file.getSize());
+            imageEntity.setContentType(file.getContentType());
+            imageEntity.setLocalizacao(localizacao);
+            imageEntity.setConfirmed(false);
+            imageEntity.setStatusProcessamentoIa(AiProcessingStatus.PENDENTE);
+
+            imageEntity = imageRepository.save(imageEntity);
+
             // Call AI service
             AiPredictionResponse iaResponse = null;
             try {
@@ -136,52 +170,34 @@ public class ConsultationService {
                 };
                 iaResponse = predictService.predictImage(resource, idade, sexo, localizacao.name());
             } catch (Exception e) {
-                // Log the error so we can debug AI service connectivity
                 System.err.println("Falha ao chamar serviço de IA para imagem " + file.getOriginalFilename() + ": " + e.getMessage());
             }
 
-            // Save file to disk
-            String storedFileName = fileStorageService.storeFile(file);
-
-            // Map AI response
-            String aiClass = null;
-            Double aiConfidence = null;
-            String multClass = null;
-            Double multClassConfidence = null;
-
+            // Create AiPrediction record
             if (iaResponse != null && iaResponse.getPredictions() != null && !iaResponse.getPredictions().isEmpty()) {
                 AiPredictionResponse.Prediction pred = iaResponse.getPredictions().get(0);
-                aiClass = pred.getClassValue();
-                aiConfidence = pred.getProbabilidade();
-                multClass = pred.getMultClassValue();
-                multClassConfidence = pred.getMultClassConfidenceValue();
-            }
 
-            // Save PatientImage
-            PatientImage imageEntity = new PatientImage();
-            imageEntity.setPatient(patient);
-            imageEntity.setConsultation(consultation);
-            imageEntity.setFileName(file.getOriginalFilename());
-            imageEntity.setFilePath(storedFileName);
-            imageEntity.setFileSize(file.getSize());
-            imageEntity.setContentType(file.getContentType());
-            imageEntity.setLocalizacao(localizacao);
-            imageEntity.setAiDiagnosis(aiClass);
-            imageEntity.setConfidence(aiConfidence);
-            imageEntity.setMultClass(multClass);
-            imageEntity.setMultClassConfidence(multClassConfidence);
-            imageEntity.setConfirmed(false);
+                // Use model_version from AI response if available, otherwise use default
+                String modelVersion = iaResponse.getModelVersion() != null
+                        ? iaResponse.getModelVersion()
+                        : AI_MODEL_VERSION;
+
+                AiPrediction aiPrediction = new AiPrediction();
+                aiPrediction.setPatientImage(imageEntity);
+                aiPrediction.setVersaoModelo(modelVersion);
+                aiPrediction.setClasseInferida(pred.getClassValue());
+                aiPrediction.setConfianca(pred.getProbabilidade());
+                aiPrediction.setMultClasse(pred.getMultClassValue());
+                aiPrediction.setConfiancaMultClasse(pred.getMultClassConfidenceValue());
+                aiPredictionRepository.save(aiPrediction);
+
+                imageEntity.setStatusProcessamentoIa(AiProcessingStatus.CONCLUIDO);
+            } else {
+                imageEntity.setStatusProcessamentoIa(AiProcessingStatus.FALHA);
+            }
 
             imageRepository.save(imageEntity);
             consultation.getImages().add(imageEntity);
-
-            // Set consultation-level diagnosis from first image
-            if (i == 0) {
-                consultation.setAiDiagnosis(aiClass);
-                consultation.setConfidence(aiConfidence);
-                consultation.setMultClass(multClass);
-                consultation.setMultClassConfidence(multClassConfidence);
-            }
         }
 
         consultation = consultationRepository.save(consultation);
@@ -194,7 +210,6 @@ public class ConsultationService {
         Consultation consultation = consultationRepository.findById(consultationId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Consulta não encontrada"));
 
-        // Verify ownership or admin
         if (!consultation.getDoctor().getId().equals(currentUser.getId())
                 && currentUser.getAccessLevel() != AccessLevel.MANAGER) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Sem permissão para confirmar esta consulta");
@@ -217,7 +232,6 @@ public class ConsultationService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Imagem não está vinculada a uma consulta");
         }
 
-        // Verify ownership or admin
         if (!consultation.getDoctor().getId().equals(currentUser.getId())
                 && currentUser.getAccessLevel() != AccessLevel.MANAGER) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Sem permissão");
@@ -225,9 +239,30 @@ public class ConsultationService {
 
         image.setDoctorVerdict(request.getFinalDiagnosis());
         image.setConfirmed(true);
-        imageRepository.save(image);
 
+        // Calculate concordanciaIa
+        List<AiPrediction> predictions = aiPredictionRepository.findByPatientImageIdOrderByCriadoEmDesc(imageId);
+        if (!predictions.isEmpty()) {
+            AiPrediction latestPrediction = predictions.get(0);
+            String aiClass = latestPrediction.getClasseInferida();
+            String doctorVerdictStr = request.getFinalDiagnosis().name();
+
+            boolean aiMaligno = "MALIGNO".equalsIgnoreCase(aiClass) || "maligno".equalsIgnoreCase(aiClass);
+            boolean doctorMaligno = isMalignantVerdict(doctorVerdictStr);
+            image.setConcordanciaIa(aiMaligno == doctorMaligno);
+        }
+
+        imageRepository.save(image);
         return ConsultationResponse.from(consultationRepository.findById(consultation.getId()).orElseThrow());
+    }
+
+    private boolean isMalignantVerdict(String verdict) {
+        return verdict != null && (
+                verdict.equals("MELANOMA") ||
+                verdict.equals("CARCINOMA_BASOCELULAR") ||
+                verdict.equals("CARCINOMA_ESPINOCELULAR") ||
+                verdict.equals("QUERATOSE_ACTINICA")
+        );
     }
 
     public List<ConsultationResponse> listConsultations(String nome, String cpf) {
@@ -250,7 +285,6 @@ public class ConsultationService {
         Consultation consultation = consultationRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Consulta não encontrada"));
 
-        // Verify ownership or admin
         if (!consultation.getDoctor().getId().equals(currentUser.getId())
                 && currentUser.getAccessLevel() != AccessLevel.MANAGER) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Sem permissão");

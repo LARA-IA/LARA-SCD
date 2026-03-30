@@ -67,7 +67,6 @@ export default function AdminDashboardScreen() {
             const fileName = `scd_backup_${dateStr}.zip`;
 
             if (Platform.OS === 'web') {
-                // Web: trigger browser download
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
@@ -78,7 +77,6 @@ export default function AdminDashboardScreen() {
                 URL.revokeObjectURL(url);
                 Alert.alert('Sucesso', 'Backup baixado com sucesso!');
             } else {
-                // Native: use expo-file-system + expo-sharing
                 const file = new ExpoFile(Paths.cache, fileName);
                 const arrayBuffer = await blob.arrayBuffer();
                 const uint8 = new Uint8Array(arrayBuffer);
@@ -166,6 +164,26 @@ export default function AdminDashboardScreen() {
                     </View>
                     <Text style={styles.statNumber}>{dashboard?.totalImages ?? 0}</Text>
                     <Text style={styles.statLabel}>Total de Imagens</Text>
+                </View>
+
+                <View style={[styles.statCard, { borderLeftColor: '#22c55e' }]}>
+                    <View style={styles.statIconRow}>
+                        <View style={[styles.statIconBg, { backgroundColor: 'rgba(34, 197, 94, 0.15)' }]}>
+                            <Ionicons name="analytics" size={24} color="#22c55e" />
+                        </View>
+                    </View>
+                    <Text style={styles.statNumber}>{dashboard?.totalPredictions ?? 0}</Text>
+                    <Text style={styles.statLabel}>Predições de IA</Text>
+                </View>
+
+                <View style={[styles.statCard, { borderLeftColor: '#ef4444' }]}>
+                    <View style={styles.statIconRow}>
+                        <View style={[styles.statIconBg, { backgroundColor: 'rgba(239, 68, 68, 0.15)' }]}>
+                            <Ionicons name="body" size={24} color="#ef4444" />
+                        </View>
+                    </View>
+                    <Text style={styles.statNumber}>{dashboard?.totalLesions ?? 0}</Text>
+                    <Text style={styles.statLabel}>Lesões Rastreadas</Text>
                 </View>
             </View>
 

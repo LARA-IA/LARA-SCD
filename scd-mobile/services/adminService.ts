@@ -4,6 +4,8 @@ export interface DashboardResponse {
     totalPatients: number;
     totalDoctors: number;
     totalImages: number;
+    totalPredictions: number;
+    totalLesions: number;
 }
 
 export interface ChangePasswordRequest {
@@ -22,10 +24,7 @@ export const adminService = {
     },
 
     downloadBackup: async (): Promise<string> => {
-        // Returns the full URL for the backup download
-        // The actual download is handled by expo-file-system + expo-sharing
         const baseUrl = api.defaults.baseURL || '';
         return `${baseUrl}/admin/backup`;
     },
 };
-

@@ -1,9 +1,15 @@
 package com.lara.scd.patient.domain.model;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.lara.scd.consultation.domain.model.Consultation;
+import com.lara.scd.lesion.domain.model.Lesion;
+import com.lara.scd.predict.domain.model.AiPrediction;
 import jakarta.persistence.*;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -30,22 +36,18 @@ public class PatientImage {
     @Column(nullable = false)
     private Localizacao localizacao;
 
-    @Column(name = "ai_diagnosis")
-    private String aiDiagnosis; // MALIGNO ou BENIGNO
-
-    private Double confidence;
-
-    @Column(name = "mult_class")
-    private String multClass; // melanoma, nevo, etc
-
-    @Column(name = "mult_class_confidence")
-    private Double multClassConfidence;
-
     @Enumerated(EnumType.STRING)
     @Column(name = "doctor_verdict")
     private DoctorVerdict doctorVerdict;
 
     private Boolean confirmed = false;
+
+    @Column(name = "concordancia_ia")
+    private Boolean concordanciaIa;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status_processamento_ia", nullable = false)
+    private AiProcessingStatus statusProcessamentoIa = AiProcessingStatus.PENDENTE;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "patient_id")
@@ -56,9 +58,35 @@ public class PatientImage {
     @JsonBackReference
     private Consultation consultation;
 
-    // Construtores, Getters e Setters
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "lesion_id")
+    private Lesion lesion;
+
+    @OneToMany(mappedBy = "patientImage", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
+    private List<AiPrediction> predictions = new ArrayList<>();
+
+    @Column(name = "criado_em", nullable = false, updatable = false)
+    private LocalDateTime criadoEm;
+
+    @Column(name = "atualizado_em")
+    private LocalDateTime atualizadoEm;
+
+    @PrePersist
+    protected void onCreate() {
+        this.criadoEm = LocalDateTime.now();
+        this.atualizadoEm = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.atualizadoEm = LocalDateTime.now();
+    }
+
+    // Constructors
     public PatientImage() {}
 
+    // Getters & Setters
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
     public String getFilePath() { return filePath; }
@@ -71,20 +99,24 @@ public class PatientImage {
     public void setContentType(String contentType) { this.contentType = contentType; }
     public Localizacao getLocalizacao() { return localizacao; }
     public void setLocalizacao(Localizacao localizacao) { this.localizacao = localizacao; }
-    public String getAiDiagnosis() { return aiDiagnosis; }
-    public void setAiDiagnosis(String aiDiagnosis) { this.aiDiagnosis = aiDiagnosis; }
-    public Double getConfidence() { return confidence; }
-    public void setConfidence(Double confidence) { this.confidence = confidence; }
-    public String getMultClass() { return multClass; }
-    public void setMultClass(String multClass) { this.multClass = multClass; }
-    public Double getMultClassConfidence() { return multClassConfidence; }
-    public void setMultClassConfidence(Double multClassConfidence) { this.multClassConfidence = multClassConfidence; }
     public DoctorVerdict getDoctorVerdict() { return doctorVerdict; }
     public void setDoctorVerdict(DoctorVerdict doctorVerdict) { this.doctorVerdict = doctorVerdict; }
     public Boolean getConfirmed() { return confirmed; }
     public void setConfirmed(Boolean confirmed) { this.confirmed = confirmed; }
+    public Boolean getConcordanciaIa() { return concordanciaIa; }
+    public void setConcordanciaIa(Boolean concordanciaIa) { this.concordanciaIa = concordanciaIa; }
+    public AiProcessingStatus getStatusProcessamentoIa() { return statusProcessamentoIa; }
+    public void setStatusProcessamentoIa(AiProcessingStatus statusProcessamentoIa) { this.statusProcessamentoIa = statusProcessamentoIa; }
     public Patient getPatient() { return patient; }
     public void setPatient(Patient patient) { this.patient = patient; }
     public Consultation getConsultation() { return consultation; }
     public void setConsultation(Consultation consultation) { this.consultation = consultation; }
+    public Lesion getLesion() { return lesion; }
+    public void setLesion(Lesion lesion) { this.lesion = lesion; }
+    public List<AiPrediction> getPredictions() { return predictions; }
+    public void setPredictions(List<AiPrediction> predictions) { this.predictions = predictions; }
+    public LocalDateTime getCriadoEm() { return criadoEm; }
+    public void setCriadoEm(LocalDateTime criadoEm) { this.criadoEm = criadoEm; }
+    public LocalDateTime getAtualizadoEm() { return atualizadoEm; }
+    public void setAtualizadoEm(LocalDateTime atualizadoEm) { this.atualizadoEm = atualizadoEm; }
 }

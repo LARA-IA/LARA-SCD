@@ -31,28 +31,26 @@ public class Consultation {
     @JsonManagedReference
     private List<PatientImage> images = new ArrayList<>();
 
-    @Column(name = "ai_diagnosis")
-    private String aiDiagnosis;
-
-    private Double confidence;
-
-    @Column(name = "mult_class")
-    private String multClass;
-
-    @Column(name = "mult_class_confidence")
-    private Double multClassConfidence;
-
     @Column(name = "final_diagnosis")
     private String finalDiagnosis;
 
     private Boolean confirmed = false;
 
-    @Column(name = "created_at")
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
 
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
     }
 
     public Consultation() {}
@@ -66,18 +64,12 @@ public class Consultation {
     public void setDoctor(Doctor doctor) { this.doctor = doctor; }
     public List<PatientImage> getImages() { return images; }
     public void setImages(List<PatientImage> images) { this.images = images; }
-    public String getAiDiagnosis() { return aiDiagnosis; }
-    public void setAiDiagnosis(String aiDiagnosis) { this.aiDiagnosis = aiDiagnosis; }
-    public Double getConfidence() { return confidence; }
-    public void setConfidence(Double confidence) { this.confidence = confidence; }
-    public String getMultClass() { return multClass; }
-    public void setMultClass(String multClass) { this.multClass = multClass; }
-    public Double getMultClassConfidence() { return multClassConfidence; }
-    public void setMultClassConfidence(Double multClassConfidence) { this.multClassConfidence = multClassConfidence; }
     public String getFinalDiagnosis() { return finalDiagnosis; }
     public void setFinalDiagnosis(String finalDiagnosis) { this.finalDiagnosis = finalDiagnosis; }
     public Boolean getConfirmed() { return confirmed; }
     public void setConfirmed(Boolean confirmed) { this.confirmed = confirmed; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

@@ -6,6 +6,8 @@ from controller.dto.metadados_dto import MetaDadosDTO
 
 logger = logging.getLogger(__name__)
 
+MODEL_VERSION = "YOLOv8_simulated_v1.0"
+
 try:
     # Em um cenário real seriam:
     # model_binary = YOLO("models/binary_model.pt")
@@ -17,7 +19,7 @@ except Exception as e:
 
 async def diagnostic(img_array, dto: MetaDadosDTO):
     if img_array is None:
-        return {"predictions": [], "error": "Imagem inválida ou não fornecida"}
+        return {"predictions": [], "model_version": MODEL_VERSION, "error": "Imagem inválida ou não fornecida"}
 
     try:
         # Array of primary classes
@@ -73,8 +75,8 @@ async def diagnostic(img_array, dto: MetaDadosDTO):
                 "ProbabilidadeMultClass": probabilidade_multi
             })
             
-        return {"predictions": predictions_final}
+        return {"predictions": predictions_final, "model_version": MODEL_VERSION}
 
     except Exception as e:
         logger.error(f"Erro: {e}")
-        return {"predictions": [], "error": str(e)}
+        return {"predictions": [], "model_version": MODEL_VERSION, "error": str(e)}

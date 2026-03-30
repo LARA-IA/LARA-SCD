@@ -4,12 +4,34 @@ import { Platform } from 'react-native';
 // ==================== Types ====================
 
 export interface ConsultationRequest {
-    nome: string;
-    cpf: string;
-    sexo: string;
-    dataNascimento?: string;
+    patientId: string;
     localizacoes: string[];
     images: { uri: string; name: string; type: string }[];
+}
+
+export interface AiPredictionInfo {
+    id: string;
+    versaoModelo: string;
+    classeInferida?: string;
+    confianca?: number;
+    multClasse?: string;
+    confiancaMultClasse?: number;
+    criadoEm?: string;
+}
+
+export interface ImageInfo {
+    id: string;
+    filePath: string;
+    fileName: string;
+    fileSize: number;
+    contentType: string;
+    localizacao?: string;
+    finalDiagnosis?: string;
+    confirmed: boolean;
+    concordanciaIa?: boolean;
+    statusProcessamentoIa?: string;
+    lesionId?: string;
+    predictions: AiPredictionInfo[];
 }
 
 export interface ConsultationResponse {
@@ -20,34 +42,17 @@ export interface ConsultationResponse {
         cpf: string;
         sexo: string;
         dataNascimento?: string;
+        termoConsentimentoIa?: boolean;
     };
     doctor: {
         id: string;
         nome: string;
     };
-    aiDiagnosis?: string;
-    confidence?: number;
-    multClass?: string;
-    multClassConfidence?: number;
     finalDiagnosis?: string;
     confirmed: boolean;
     createdAt: string;
+    updatedAt?: string;
     images: ImageInfo[];
-}
-
-export interface ImageInfo {
-    id: string;
-    filePath: string;
-    fileName: string;
-    fileSize: number;
-    contentType: string;
-    localizacao?: string;
-    aiDiagnosis?: string;
-    confidence?: number;
-    multClass?: string;
-    multClassConfidence?: number;
-    finalDiagnosis?: string;
-    confirmed: boolean;
 }
 
 export type DoctorVerdict =
@@ -112,23 +117,17 @@ export const LocalizacaoOptions = Object.entries(LocalizacaoLabels).map(([value,
 
 export const consultationService = {
     /**
-     * Creates a new consultation with patient data and images.
+     * Creates a new consultation with images for an existing patient.
      * POST /api/medico/consultations (multipart/form-data)
      */
     createConsultation: async (data: ConsultationRequest): Promise<ConsultationResponse> => {
         const formData = new FormData();
-        formData.append('nome', data.nome);
-        formData.append('cpf', data.cpf);
-        formData.append('sexo', data.sexo);
+        formData.append('patientId', data.patientId);
         data.localizacoes.forEach((loc) => {
             formData.append('localizacoes', loc);
         });
-        if (data.dataNascimento) {
-            formData.append('dataNascimento', data.dataNascimento);
-        }
 
         if (Platform.OS === 'web') {
-            // On web, we need to convert blob URIs to actual File objects
             for (const img of data.images) {
                 const response = await fetch(img.uri);
                 const blob = await response.blob();
@@ -136,7 +135,6 @@ export const consultationService = {
                 formData.append('images', file);
             }
         } else {
-            // On native (Android/iOS), use the RN FormData extension
             data.images.forEach((img) => {
                 formData.append('images', {
                     uri: img.uri,
@@ -153,7 +151,7 @@ export const consultationService = {
                 headers: {
                     'Content-Type': 'multipart/form-data',
                 },
-                timeout: 120000, // 2 min timeout for AI + multiple images
+                timeout: 120000,
             }
         );
         return response.data;

@@ -14,5 +14,7 @@ public record PatientRegisterRequestDto(
         java.time.LocalDate dataNascimento,
 
         @NotBlank
-        String sexo
+        String sexo,
+
+        Boolean termoConsentimentoIa
 ) {}
