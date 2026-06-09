@@ -17,27 +17,24 @@ O sistema utiliza **JWT (JSON Web Token)** para autenticação stateless.
 
 ### Fluxo de Autenticação
 
-```
-1. Cliente envia POST /api/auth/login { email, password }
-        │
-        ▼
-2. AuthenticationManager valida credenciais (BCrypt)
-        │
-        ▼
-3. JwtUtil gera token com claims: email, userId, accessLevel
-        │
-        ▼
-4. Retorna { type: "Bearer", token: "eyJ...", id, nome, email, accessLevel }
-        │
-        ▼
-5. Cliente armazena token (AsyncStorage no mobile)
-        │
-        ▼
-6. Todas as requisições subsequentes incluem header:
-   Authorization: Bearer eyJ...
-        │
-        ▼
-7. JwtFilter valida o token em cada request
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Cliente as Cliente (Mobile)
+    participant Auth as AuthController
+    participant Manager as AuthenticationManager
+    participant DB as Banco de Dados
+    participant Jwt as JwtUtil
+    
+    Cliente->>Auth: POST /api/auth/login {email, password}
+    Auth->>Manager: authenticate(UsernamePasswordAuthenticationToken)
+    Manager->>DB: CustomUserDetailsService.loadUserByUsername(email)
+    DB-->>Manager: Retorna UserDetails (senha criptografada BCrypt)
+    Manager-->>Auth: Sucesso na autenticação
+    Auth->>Jwt: generateToken(email, userId, accessLevel)
+    Jwt-->>Auth: Token assinado (JWT)
+    Auth-->>Cliente: Retorna {type: "Bearer", token, id, nome, email, accessLevel}
+    Note over Cliente: Salva token no AsyncStorage e envia no Header das próximas requisições
 ```
 
 ### Componentes de Segurança

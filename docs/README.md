@@ -1,5 +1,7 @@
 # 📚 LARA-SCD — Documentação dos Serviços
 
+![LARA-SCD Banner](banner.png)
+
 **SCD (Skin Cancer Detection)** — Sistema de detecção de câncer de pele com inteligência artificial.
 
 ---
