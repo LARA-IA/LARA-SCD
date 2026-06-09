@@ -65,13 +65,7 @@ public class PredictController {
         // Call AI Service synchronously
         AiPredictionResponse iaResponse;
         try {
-            ByteArrayResource resource = new ByteArrayResource(file.getBytes()) {
-                @Override
-                public String getFilename() {
-                    return file.getOriginalFilename();
-                }
-            };
-            iaResponse = predictService.predictImage(resource, idade, sexo, localizacao);
+            iaResponse = predictService.predictImage(file, idade, sexo, localizacao);
         } catch (Exception e) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Erro ao classificar a imagem na IA", e);
         }

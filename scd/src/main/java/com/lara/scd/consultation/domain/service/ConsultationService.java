@@ -162,13 +162,7 @@ public class ConsultationService {
             // Call AI service
             AiPredictionResponse iaResponse = null;
             try {
-                ByteArrayResource resource = new ByteArrayResource(file.getBytes()) {
-                    @Override
-                    public String getFilename() {
-                        return file.getOriginalFilename();
-                    }
-                };
-                iaResponse = predictService.predictImage(resource, idade, sexo, localizacao.name());
+                iaResponse = predictService.predictImage(file, idade, sexo, localizacao.name());
             } catch (Exception e) {
                 System.err.println("Falha ao chamar serviço de IA para imagem " + file.getOriginalFilename() + ": " + e.getMessage());
             }
